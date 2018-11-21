@@ -1,46 +1,47 @@
 import java.util.*;
 import java.io.*;
 public class BTreeDB {
-    // to allow BTreeDB access to the fil
+    // RandomAccessFile and File set as universal variables so that other methods
+    //outside the try catch statement can reference to it.
     public static RandomAccessFile dVal;
-    
+    public static File dv;
     public static void main(String[] args) throws IOException{
+       
         HashMap<Integer,String > hash = new HashMap<>();
-        ValueManager valueMan = new ValueManager(args[1]); //maybe something wrong why?it doesnt pass values to dVal? right. 
-        long numRecords = 0;
+        //instantiate ValueManager which has an empty constructor.
+        ValueManager valueMan = new ValueManager();
+        long numRecords = 0;       
+        
         try{
-            // creates and reads the data.bt and data.vl files
+            // creates and reads the data.bt files
             File db = new File(args[0]);
             RandomAccessFile dBt = new RandomAccessFile(db, "rwd");
-
+            
+            dv = new File(args[1]);
+            dVal = new RandomAccessFile(dv, "rwd");
+            System.out.println("dval created");
+            if(dv.exists())
+            numRecords = dVal.readLong();
+        
         }
-        catch(IOException a){
+        catch(IOException e){ 
         }
-        //1.  check if file already exists
         
-        //2.  if file exists then numRecords<-- readlong()
-        
-        // else numRecords <-- 0
-        
-        // 3. insert 1 A
-        // file.seek(f(numRecords)); seek the parts
-        // file. writeByte(value.length())   value is the string passed
-        // file.writeByte(value)
-        // ++ numRecords;
-        
-        
+        /*
+            This is the start of looking at the inputs
+        */
         Scanner in = new Scanner(System.in);
         // breaks out of while loop
         // and program ends
         OUT:
         while(true){
+            System.out.println("accepting input...");
             // gets input and splits 
             String s = in.nextLine();
-            // what happens if its not a word but a phrase or sentence?
             String[] input = s.split(" ");
-            String word = null;
-            // adds all the separated wordsS
-            if(input.length>3){
+            String word = "";
+            // in the case that the value has more than 1 words, this for loop adds all of it
+            if(input.length>=3){
                 for(int i =2; i<=input.length-1; i++){
                     if(i == input.length-1){
                         word+= input[i];
@@ -55,10 +56,12 @@ public class BTreeDB {
             switch(input[0]){
                 case "insert":
                     // if input length is correct
-                    if(input.length==3){
+                    if(input.length>=3){
+                        //we might need the key but for now I havent used it in anything
                         long key = Long.parseLong(input[1]);
-                        // adds also the key?
-                       valueMan.insert( dVal, s, numRecords, key);
+                    // adds also the key?
+                    valueMan.insert(dVal,word,numRecords);
+                    numRecords++;
                     }else{ // if input is worng or added too much stuff
                         error("insert", Integer.parseInt(input[1]));
                     }
@@ -79,6 +82,7 @@ public class BTreeDB {
                     error("wrong",0);
             }
         }
+        dVal.close();
         
         
     }
