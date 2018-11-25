@@ -21,40 +21,56 @@ public class BTManager {
         numRecords++;
         long pbytes = 16;//8 bytes numrecords, 8 bytes root record num
         db.seek(pbytes);
-        db.writeLong(parent);
-        long bytes = 8*numRecords+16;
+        db.writeLong(parent); //write parent
+        long bytes = 24*numRecords; //24 48 80
         db.seek(bytes);
-        db.writeLong(0);
-        db.writeLong(key);
-//        checkPreviousKeys(db,numRecords,key);
+        db.writeLong(-1);//write child id
+        db.writeLong(key); //write key
+        db.writeLong(numRecords-1);
+        checkPreviousKeys(db,numRecords,key);
         db.seek(0);
         db.writeLong(numRecords);
         db.seek(8); //write the root num after
         db.writeLong(0); //root
     }
     public void checkPreviousKeys(RandomAccessFile db, long numRecords,long key)throws IOException{
-        if(numRecords!=0){
-            for(long i=0;i<numRecords;i++){
+        if(numRecords>1){ //fix
+            for(long i=1;i<numRecords;i++){
                 long j = i+1;
-                long read = 16+i*8;
-                long read2 = 16+j*8;
+                long read = 24*i+8;
+                long read2 = 24*j+8;
                 db.seek(read);
-                long compare = db.readLong();
+                long compare = db.readLong(); //previous key
+                System.out.println(key+" "+compare);
                 if(key<compare){
                     db.seek(read);
                     db.writeLong(key);
                     db.seek(read2);
                     db.writeLong(compare);
                 }
-                else{
-                    db.writeLong(key);
-                    break;
-                }
             }
         }
+//        else{
+//            db.seek(24*numRecords);
+//            db.writeLong(-1);
+//            db.writeLong(key);
+//            db.writeLong(numRecords-1);
+//        }
+    }
+    //check if you need to make a new node
+    public boolean check(long numRecords, RandomAccessFile db) throws IOException{
+        boolean b = false;
+        if(numRecords==0)
+            b = true;
         else{
-            db.seek(16+8);
-            db.writeLong(key);
+            
+        }
+        return b;
+    }
+    //createa new node (doesnt include numRecords and root nuum)
+    public void createNode(RandomAccessFile db) throws IOException{
+        for(int i=1;i<=14;i++){
+            db.writeLong(-1);
         }
     }
     //check whether to put as left child or right
