@@ -37,16 +37,26 @@ public class BTManager {
         if(numRecords>1){ //fix
             for(long i=1;i<numRecords;i++){
                 long j = i+1;
-                long read = 24*i+8;
-                long read2 = 24*j+8;
+                long read = 24*i+8; //key
+                long read2 = 24*j+8; //key
+                long offset1 = read+8; //offset
+                long offset2 = read2+8; //offset
                 db.seek(read);
                 long compare = db.readLong(); //previous key
                 System.out.println(key+" "+compare);
                 if(key<compare){
+                    db.seek(offset1);
+                    long off1 = db.readLong();
+                    db.seek(offset2);
+                    long off2 = db.readLong();
                     db.seek(read);
                     db.writeLong(key);
                     db.seek(read2);
                     db.writeLong(compare);
+                    db.seek(offset1);
+                    db.writeLong(off2);
+                    db.seek(offset2);
+                    db.writeLong(off1);
                 }
             }
         }
