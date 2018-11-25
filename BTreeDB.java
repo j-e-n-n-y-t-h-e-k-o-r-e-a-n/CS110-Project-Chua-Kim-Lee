@@ -3,19 +3,20 @@ import java.io.*;
 public class BTreeDB {
     // RandomAccessFile and File set as universal variables so that other methods
     //outside the try catch statement can reference to it.
-    public static RandomAccessFile dVal;
-    public static File dv;
+    public static RandomAccessFile dVal,dBt;
+    public static File dv,db;
     public static void main(String[] args) throws IOException{
        
         HashMap<Integer,String > hash = new HashMap<>();
         //instantiate ValueManager which has an empty constructor.
         ValueManager valueMan = new ValueManager();
+        BTManager btm = new BTManager();
         long numRecords = 0;       
         
         try{
             // creates and reads the data.bt files
-            File db = new File(args[0]);
-            RandomAccessFile dBt = new RandomAccessFile(db, "rwd");
+            db = new File(args[0]);
+            dBt = new RandomAccessFile(db, "rwd");
             
             dv = new File(args[1]);
             dVal = new RandomAccessFile(dv, "rwd");
@@ -59,6 +60,7 @@ public class BTreeDB {
                     if(input.length>=3){
                         //we might need the key but for now I havent used it in anything
                         long key = Long.parseLong(input[1]);
+                        btm.insert(checkParent(key,numRecords),dBt, key, numRecords);
                     // adds also the key?
                     valueMan.insert(dVal,word,numRecords);
                     numRecords++;
@@ -112,6 +114,13 @@ public class BTreeDB {
         }
             
     }
-    
-    
+    public static long checkParent(long key,long numRecords){
+        long parent = -1;
+//        if(numRecords==0)
+//            parent=-1;
+//        else{ //look for the parent
+//            parent=0;
+//        }
+        return parent;
+    }
 }
