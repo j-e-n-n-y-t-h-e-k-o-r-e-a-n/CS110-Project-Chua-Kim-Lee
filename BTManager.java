@@ -33,6 +33,9 @@ public class BTManager {
         db.seek(8); //write the root num after
         db.writeLong(0); //root
     }
+    //NOTES: 24*i = child node
+    //24*i+8 = key
+    //24*i+16 = offset
     public void checkPreviousKeys(RandomAccessFile db, long numRecords,long key)throws IOException{
         if(numRecords>1){ //fix
             for(long i=1;i<numRecords;i++){

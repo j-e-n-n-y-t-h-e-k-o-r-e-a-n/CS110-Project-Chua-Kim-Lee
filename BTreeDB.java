@@ -73,7 +73,7 @@ public class BTreeDB {
                     if(input.length>2)
                         error("select", Integer.parseInt(input[1]));
                     else
-                        select();
+                        select(Long.parseLong(input[1]),dBt,dVal,numRecords);
                     break;
                 case "update":
                     update();
@@ -88,9 +88,16 @@ public class BTreeDB {
         
         
     }
-   
-    public static void select(){
-        
+   //TEST SELECT
+    public static void select(long key,RandomAccessFile dBt,RandomAccessFile dVal,long numRecords)throws IOException{
+        for(int i=1;i<=numRecords;i++){
+            dBt.seek(8+24*i);
+            if(key==dBt.readLong()){
+                long offset = dBt.readLong();
+                dVal.seek(256*offset+8);
+                System.out.println(dVal.readLong());
+            }
+        }
     }
     public static void update(){
         
