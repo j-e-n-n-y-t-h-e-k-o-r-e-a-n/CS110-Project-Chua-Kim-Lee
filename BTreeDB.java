@@ -7,8 +7,6 @@ public class BTreeDB {
     public static RandomAccessFile dVal,dBt;
     public static File dv,db;
     public static void main(String[] args) throws IOException{
-       
-        HashMap<Integer,String > hash = new HashMap<>();
         //instantiate ValueManager which has an empty constructor.
         ValueManager valueMan = new ValueManager();
         BTManager btm = new BTManager();
@@ -21,7 +19,6 @@ public class BTreeDB {
             
             dv = new File(args[1]);
             dVal = new RandomAccessFile(dv, "rwd");
-            System.out.println("dval created");
             if(dv.exists())
             numRecords = dVal.readLong();
         
@@ -37,7 +34,6 @@ public class BTreeDB {
         // and program ends
         OUT:
         while(true){
-            System.out.println("accepting input...");
             // gets input and splits 
             String s = in.nextLine();
             String[] input = s.split(" ");
@@ -58,12 +54,13 @@ public class BTreeDB {
             switch(input[0]){
                 case "insert":
                     // if input length is correct
-                    if(input.length>=3){
+                    if(input.length>=2){
                         //we might need the key but for now I havent used it in anything
                         long key = Long.parseLong(input[1]);
                         btm.insert(checkParent(key,numRecords),dBt, key, numRecords);
                     // adds also the key?
                     valueMan.insert(dVal,word,numRecords);
+                    System.out.println(key + " inserted.");
                     numRecords++;
                     }else{ // if input is worng or added too much stuff
                         error("insert", Integer.parseInt(input[1]));
@@ -77,7 +74,16 @@ public class BTreeDB {
                         select(Long.parseLong(input[1]),dBt,dVal,numRecords);
                     break;
                 case "update":
-                    update();
+                    
+                    for(int i=1;i<=numRecords;i++){
+                        dBt.seek(8+24*i); //checks all keys in bt (CHANGE WHEN BT USES TREE STRUCTURE ALR)
+                        if(Long.parseLong(input[1])==dBt.readLong()){
+                            update(word,Long.parseLong(input[1]),dBt,dVal,numRecords);
+                            break;
+                        }
+                        else if(i==numRecords)
+                            error("update",Long.parseLong(input[1]));
+                    }
                     break;
                 case "exit":
                     break OUT;
@@ -102,14 +108,25 @@ public class BTreeDB {
                 byte [] strb = new byte[strlen]; //string length*2 (2 bytes per letter?) PLS CONFIRM
                 dVal.readFully(strb); //read strlen*2 bytes (puts it in array too?)
                 String word = new String(strb,StandardCharsets.UTF_8); //changes it into a string
-                System.out.println(word);
+                System.out.println(key+" => "+word);
             }
         }
     }
-    public static void update(){
-        
+    public static void update(String change,long key,RandomAccessFile dBt,RandomAccessFile dVal,long numRecords) throws IOException{
+        for(int i=1;i<=numRecords;i++){
+            dBt.seek(8+24*i); //checks all keys in bt (CHANGE WHEN BT USES TREE STRUCTURE ALR)
+            if(key==dBt.readLong()){
+                dBt.seek(16+24*i); //get offset
+                long offset = dBt.readLong(); //check the offset (written in bt)
+                dVal.seek(256*offset+8); //8 = numrecord (seek the num
+                dVal.writeByte(change.length()); //writes length of the string
+                //this writes the word converted to bytes
+                dVal.writeBytes(change); //writes the string itself in byte conversion
+                System.out.println(key+" updated.");
+            }
+        }
     }
-    public static void error(String word, int key){
+    public static void error(String word, long key){
         System.out.print("ERROR: ");
         switch (word) {
             case "select":

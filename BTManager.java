@@ -46,7 +46,6 @@ public class BTManager {
                 long offset2 = read2+8; //offset
                 db.seek(read);
                 long compare = db.readLong(); //previous key
-                System.out.println(key+" "+compare);
                 if(key<compare){
                     db.seek(offset1);
                     long off1 = db.readLong();
