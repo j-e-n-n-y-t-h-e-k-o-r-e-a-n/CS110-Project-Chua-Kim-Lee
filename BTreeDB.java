@@ -1,5 +1,6 @@
 import java.util.*;
 import java.io.*;
+import java.nio.charset.StandardCharsets;
 public class BTreeDB {
     // RandomAccessFile and File set as universal variables so that other methods
     //outside the try catch statement can reference to it.
@@ -85,17 +86,23 @@ public class BTreeDB {
             }
         }
         dVal.close();
-        
+        dBt.close();
         
     }
-   //TEST SELECT
+   //TEST SELECT (HYPOTHETICALLY shold work)
     public static void select(long key,RandomAccessFile dBt,RandomAccessFile dVal,long numRecords)throws IOException{
         for(int i=1;i<=numRecords;i++){
-            dBt.seek(8+24*i);
+            dBt.seek(8+24*i); //checks all keys in bt (CHANGE WHEN BT USES TREE STRUCTURE ALR)
             if(key==dBt.readLong()){
-                long offset = dBt.readLong();
-                dVal.seek(256*offset+8);
-                System.out.println(dVal.readLong());
+                dBt.seek(16+24*i); //get offset
+                long offset = dBt.readLong(); //check the offset (written in bt)
+                dVal.seek(256*offset+8); //8 = numrecord
+                Byte b = dVal.readByte(); //reads the string length written in val
+                int strlen = b.intValue(); //chhange it to int
+                byte [] strb = new byte[strlen]; //string length*2 (2 bytes per letter?) PLS CONFIRM
+                dVal.readFully(strb); //read strlen*2 bytes (puts it in array too?)
+                String word = new String(strb,StandardCharsets.UTF_8); //changes it into a string
+                System.out.println(word);
             }
         }
     }
