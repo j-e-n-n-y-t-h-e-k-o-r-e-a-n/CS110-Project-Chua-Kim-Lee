@@ -61,6 +61,8 @@ public class NodeManager {
             }
         }
         numNodes++;
+        db.seek(0);
+        db.writeLong(numNodes); //update the numnodes at header
     }
     //turn the split shit into -1
     //offset = offset of currently inserted value (in case it is the mid)
@@ -95,35 +97,53 @@ public class NodeManager {
         //just use current for left
         long mid = arr[2];
         long midoff = offsets2[2];
-        db.seek(location);
+//        db.seek(location);
+        long id = handleParent(p,db,mid,midoff,numNodes);
         //addNode(db,mid,numNodes,arr[0],arr[1],offsets2[0],offsets2[1]); //id = numnodes-2 (left node)
-        addNode(db,mid,numNodes,arr[3],arr[4],offsets2[3],offsets2[4]); //id = numnodes-1 (right node)
-        db.
-        handleParent(p,db,mid,midoff,numNodes);
+        addNode(db,id,numNodes,arr[3],arr[4],offsets2[3],offsets2[4]); //id = numnodes-1 (right node)
+        changeNode(location-8,db,id,arr[0],arr[1],offsets2[0],offsets2[1]);
 //        db.writeLong(numNodes-2);
 //        db.writeLong(mid);
 //        db.writeLong(midoff);//offset of mid
 //        db.writeLong(numNodes-1);
     }
     //id = id of parent
-    public void handleParent(long id,RandomAccessFile db,long key,long offset,long numNodes)throws IOException{
+    public long handleParent(long id,RandomAccessFile db,long key,long offset,long numNodes)throws IOException{
+        long pid=0; //id of where itll be placed
         if(id==-1){
-            //if it has no parent
-        //before clearing just clearing the node, check first if there is a parent, if there is, just add there
-            for(int i=0;i<13;i++){
-                db.writeLong(-1);
-            }
+            //if it has no parent to be pushed to, make a new node and set it as root
+            addNode(db,-1,numNodes,key,-1,offset,-1);
+            pid = numNodes-1;
+            setRootNode(pid,db);
+            //randomaccessfile,parent id,numnodes,key1,key2,offset1,offset2
         }
         else{
             //if it has a parent alr, and has space, write it there (shld prolly add a sort here)
             //prolly just call the sort function in btmanager after every split
-            if(checkNotFull(id,db)){
+            if(checkNotFull(id,db)){ //check the record based on id
                 db.writeLong(numNodes-2);
                 db.writeLong(key);
                 db.writeLong(offset);
                 db.writeLong(numNodes-1);
+                pid = id;
+            }
+            else{ //if the one to be pushed to it is the 5th num
+                long[] arr = new long[5]; //arr of keys
+                long[] offsets = new long[5]; //arr of offsets
+                long recid = 112*id+16;
+                db.seek(recid);
+                long par = db.readLong();//parent of record
+                for(int i=0;i<4;i++){
+                    recid+=8; //location of keys
+                    db.seek(recid);
+                    arr[i] = db.readLong(); //place key
+                    offsets[i] = db.readLong(); //place respective offset
+                }
+                split(db,numNodes,arr,par,offsets);
+                //^^^ WHAT IF IT SPLITS AND THE NUMBER RN IS THE NEW PARENT
             }
         }
+        return pid;
     }
     //return true if node not full
     public boolean checkNotFull(long id,RandomAccessFile db) throws IOException{
@@ -133,10 +153,23 @@ public class NodeManager {
             db.seek(recid);
             long offset = db.readLong();
             if(offset==-1){
-                db.seek(recid-8); //go to the key that has an empty space 
+                db.seek(recid-16); //go to the child node before the key thts empty
                 return true;
             }
         }
         return false;
+    }
+    //push a value up
+    public void push(RandomAccessFile db,long id)throws IOException{
+        
+    }
+    public long checkParentId(RandomAccessFile db,long id)throws IOException{
+        long location = 112*id+16;
+        db.seek(id);
+        return db.readLong();
+    }
+    public void setRootNode(long id,RandomAccessFile db)throws IOException{
+        db.seek(8);
+        db.writeLong(id);
     }
 }
