@@ -9,8 +9,9 @@ public class BTreeDB {
     public static void main(String[] args) throws IOException{
         //instantiate ValueManager which has an empty constructor.
         ValueManager valueMan = new ValueManager();
+        BTManager btm = new BTManager();
         long numRecords = 0;       
-        
+        long numNodes = 0;
         try{
             // creates and reads the data.bt files
             db = new File(args[0]);
@@ -18,13 +19,14 @@ public class BTreeDB {
             
             dv = new File(args[1]);
             dVal = new RandomAccessFile(dv, "rwd");
-            if(dv.exists())
-            numRecords = dVal.readLong();
+            if(dv.exists()){
+                numRecords = dVal.readLong();
+                numNodes = dBt.readLong();
+            }
         
         }
         catch(IOException e){ 
         }
-        BTManager btm = new BTManager(dBt);
         
         /*
             This is the start of looking at the inputs
@@ -57,7 +59,7 @@ public class BTreeDB {
                     if(input.length>=2){
                         //we might need the key but for now I havent used it in anything
                         long key = Long.parseLong(input[1]);
-                        btm.insert(checkParent(key,numRecords),dBt, key, numRecords);
+                        btm.insert(numNodes,checkParent(key,numRecords),dBt, key, numRecords);
                     // adds also the key?
                     valueMan.insert(dVal,word,numRecords);
                     System.out.println(key + " inserted.");
