@@ -37,7 +37,16 @@ public class BTManager {
 //    //check from top which way to go(left right) then check child.....
     public void insert(long parent,RandomAccessFile db,long key,long numRecords,long numNodes) throws IOException{
         //check if full
-        if(checkNotFull(parent,db) && numRecords+1>5){
+        
+        /*
+            this conditional is fulfilled for the first 5 inputs only.
+            if so we dont need to check if its full?
+            
+            before we insert to the parent, we have to check if the key can be inserted in the parent key's left or right child
+            insert only inserts to the parent when a child becomes full
+        
+        */
+        if(checkNotFull(parent,db) && numRecords+1>5){ 
             long pbytes = 16;//8 bytes numrecords, 8 bytes root record num (modify into formula for more nodes)
             db.seek(pbytes);
             db.writeLong(parent); //write parent
@@ -47,6 +56,9 @@ public class BTManager {
             db.writeLong(key); //write key
             db.writeLong(numRecords); //write offset(just numRecords)
             //end of record
+            /*
+                i think here we can limit the sort in between the long bytes and long bytes+112    
+            */
             sort(db,numRecords+1,key);
             
         }
@@ -60,11 +72,25 @@ public class BTManager {
     //NOTES: 24*i = child node
     //24*i+8 = key
     //24*i+16 = offset
+    
+    /*
+        we could add a parameter to sort so that it will be sort from long1 upto long2, instead of sorting the whole thing all the time
+    */
     public void sort(RandomAccessFile db, long numRecords,long node)throws IOException{
         //node = node id to be sorted
         long location = 112*node+16+8; //8 = parent(skip it)
+        /*
+            it would be more efficient to sort it by node instead of the whole thing
+        */
         if(numRecords>1){ //fix
             for(long i=0;i<3;i++){
+                /*
+                    location must be different at each iteration
+                    (1)1st 8 bytes = 1st child
+                    (2)next 8 bytes = key itself
+                    (3)next 8 bytes = offset
+                    (4)next 8 bytes = 1st/2nd child
+                */
                 db.seek(location);
                 //first key and offset
                 long child1 = db.readLong();
@@ -98,11 +124,20 @@ public class BTManager {
     //check whether to put as left child or right
     //recursive
     //root = parent as of the moment (top to bottom so yea)
+    
+    /*
+       i dont understand this that much...
+        
+        
+    */
     public void insertLocation(long root,RandomAccessFile db,long key,long numNodes,long numRecords) throws IOException{
         long first = -1; //just to compare the key to a "left" value (NOTE: ALL KEYS ARE AT LEAST 0)
         long second;
 //        do{
         long location = 112*root+16; //location of record
+        /*
+            seek wasnt called so what is par reading?
+        */
         long par = db.readLong(); //parent of current node
         for(long i=0;i<4;i++){
             location+=24; //8*3
@@ -127,6 +162,9 @@ public class BTManager {
                 }
                 else if(childl==-1){
                     //if there is no child node but the key should go there, make node
+                    /*
+                        if there is no child node then you cant make a node for it. nodes will only be made when a node becomes full.
+                    */
                 }
                 else{
         //check first if full before going to child
@@ -156,6 +194,11 @@ public class BTManager {
         db.writeLong(0); //num of root id supposedly
         db.writeLong(numNodes);
     }
+    /*
+        whats id?
+        does this really get all offsets or offsets within a specific node?
+        same question for getAllNums
+    */
     public long[] getAllOffsets(long offset, long id, RandomAccessFile db) throws IOException{
         long[] offsets = new long[5];
         long recid = 112*id+16+24; //16 = header, 16 = skip parent and child and key (read offsets)

@@ -21,6 +21,9 @@ public class NodeManager {
     //all new nodes have at least 2 keys
     //num 1 = less
     //num2 = greater
+    /*
+        what do you mean by change node, what is this for?
+    */
     public void changeNode(long location,RandomAccessFile db, long parent, long num1, long num2, long off1, long off2)throws IOException{
         db.seek(location);
         db.writeLong(parent);
@@ -41,6 +44,9 @@ public class NodeManager {
         }
         
     }
+    /*
+        this method is called after a split and puts the keys and all into the new node?
+    */
     public void addNode(RandomAccessFile db,long parent,long numNodes,long num1,long num2,long off1,long off2)throws IOException{
         long lastRecord = 112*numNodes+16;
         db.seek(lastRecord); //go to the end of the latest record (EOF)
@@ -74,6 +80,18 @@ public class NodeManager {
         //offsets is array of all offsets (ex: offsets[1] is the offset of arr2[1])
         long[] offsets2 = new long[5];
         Arrays.sort(arr); //arr is now sorted (including 5th)
+        /*
+            sorry i dont understand this part. what do you mean by hold and whats with the i and j why is it reversed?
+            it will probably be neater if we made a sort code from scratch then whenever arr will be swapped, offset will also be swapped the same way.
+            this way we dont really need to clone the arrays and we can "sort in place."
+            for example
+            if( left> right)
+                swap(arr[left], arr[right]);
+                swap(offsets[left], offsets[right]);
+            if this is not clear I can explain again irl!
+            OR
+            just put the whole node in an array, but itd be hassle to swap the offsets and children along with it..
+        */
         for(int i=0;i<5;i++){
             long hold = arr[i]; //check the sorted array
             for(int j=0;j<5;j++){
@@ -108,6 +126,12 @@ public class NodeManager {
 //        db.writeLong(numNodes-1);
     }
     //id = id of parent
+    /*
+        what does this do?
+        to me, this looks like a method that does all the actions an insert would do?
+        like checking a node if it is full, splitting, then adding a node if it is full
+        please explain this to me tomorrow!
+    */
     public long handleParent(long id,RandomAccessFile db,long key,long offset,long numNodes)throws IOException{
         long pid=0; //id of where itll be placed
         if(id==-1){
@@ -120,6 +144,11 @@ public class NodeManager {
         else{
             //if it has a parent alr, and has space, write it there (shld prolly add a sort here)
             //prolly just call the sort function in btmanager after every split
+            /*
+                i dont think we need to sort it again because its should be already sorted.
+                it is sorted at input, then when you split it should still be sorted.
+            
+            */
             if(checkNotFull(id,db)){ //check the record based on id
                 db.writeLong(numNodes-2);
                 db.writeLong(key);
