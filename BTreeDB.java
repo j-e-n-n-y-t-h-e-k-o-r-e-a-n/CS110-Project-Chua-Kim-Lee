@@ -59,7 +59,7 @@ public class BTreeDB {
                     if(input.length>=2){
                         //we might need the key but for now I havent used it in anything
                         long key = Long.parseLong(input[1]);
-                        btm.insertLocation(0,dBt,key,numNodes,numRecords);
+                        btm.insert(0,dBt,key,numNodes,numRecords);
                     // adds also the key?
                     valueMan.insert(dVal,word,numRecords);
                     System.out.println(key + " inserted.");

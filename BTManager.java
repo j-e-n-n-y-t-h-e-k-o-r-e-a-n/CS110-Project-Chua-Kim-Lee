@@ -35,23 +35,28 @@ public class BTManager {
     14.	ID of 5th Child Node 112
     */
 //    //check from top which way to go(left right) then check child.....
-//    public void insert(long parent,RandomAccessFile db,long key,long numRecords) throws IOException{
-//        //check if full
-//        long pbytes = 16;//8 bytes numrecords, 8 bytes root record num (modify into formula for more nodes)
-//        db.seek(pbytes);
-//        db.writeLong(parent); //write parent
-//        long bytes = 24*numRecords+24; //24 48 72
-//        db.seek(bytes);
-//        db.writeLong(-1);//write child id
-//        db.writeLong(key); //write key
-//        db.writeLong(numRecords); //write offset(just numRecords)
-//        //end of record
-//        sort(db,numRecords+1,key);
-//        db.seek(0);
-//        db.writeLong(numRecords+1);
-//        db.seek(8); //write the root num after
-//        db.writeLong(0); //root
-//    }
+    public void insert(long parent,RandomAccessFile db,long key,long numRecords,long numNodes) throws IOException{
+        //check if full
+        if(checkNotFull(parent,db) && numRecords+1>5){
+            long pbytes = 16;//8 bytes numrecords, 8 bytes root record num (modify into formula for more nodes)
+            db.seek(pbytes);
+            db.writeLong(parent); //write parent
+            long bytes = 24*numRecords+24; //24 48 72
+            db.seek(bytes);
+            db.writeLong(-1);//write child id
+            db.writeLong(key); //write key
+            db.writeLong(numRecords); //write offset(just numRecords)
+            //end of record
+            sort(db,numRecords+1,key);
+            
+        }
+        else{
+            insertLocation(parent,db,key,numNodes,numRecords);
+        }
+        db.seek(0);
+        db.writeLong(numNodes+1);
+        db.writeLong(0); //root
+    }
     //NOTES: 24*i = child node
     //24*i+8 = key
     //24*i+16 = offset
@@ -107,7 +112,8 @@ public class BTManager {
                 location-=8;
                 db.seek(location); //check the child node's value
                 long childl = db.readLong(); //find where the child node is
-                if(childl==-1 && root<numNodes){ //find out if you're at bottommost node alr
+                if(childl==-1 && root<numNodes){ //find out if you're at bottommost node alr (MODIFY MAYBE)
+                    //HOW TO FIND OUT IF ITS THE BOTTOMMOST OMG
                     //if bottommost is not full, insert
                     if(checkNotFull(root,db)){
                         db.writeLong(key);
@@ -146,6 +152,9 @@ public class BTManager {
             first = second; //left key
             }
         }
+        db.seek(0);
+        db.writeLong(0); //num of root id supposedly
+        db.writeLong(numNodes);
     }
     public long[] getAllOffsets(long offset, long id, RandomAccessFile db) throws IOException{
         long[] offsets = new long[5];
