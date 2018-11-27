@@ -9,7 +9,6 @@ public class BTreeDB {
     public static void main(String[] args) throws IOException{
         //instantiate ValueManager which has an empty constructor.
         ValueManager valueMan = new ValueManager();
-        BTManager btm = new BTManager();
         long numRecords = 0;       
         
         try{
@@ -25,6 +24,7 @@ public class BTreeDB {
         }
         catch(IOException e){ 
         }
+        BTManager btm = new BTManager(dBt);
         
         /*
             This is the start of looking at the inputs
