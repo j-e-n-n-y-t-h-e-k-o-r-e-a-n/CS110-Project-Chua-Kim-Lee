@@ -36,11 +36,32 @@ public class NodeManager {
         numNodes++;
     }
     //turn the split shit into -1
-    public void split(RandomAccessFile db,long numNodes,long[] arr)throws IOException{
+    //offset = offset of currently inserted value (in case it is the mid)
+    public void split(RandomAccessFile db,long numNodes,long[] arr,long parent,long offset)throws IOException{
+        long location = 112*parent+16+8; //skip parent
+        long find = location+16;
+        long poffset = offset;
         Arrays.sort(arr);
         long mid = arr[2];
+        for(int i=0;i<4;i++){ //find the offset of the middle (the one to be parent)
+            db.seek(find);
+            long offsets = db.readLong();
+            if(offsets==mid){
+                poffset = offsets;
+                break;
+            }
+            find+=16;
+        }
+        db.seek(location);
+        for(int i=0;i<13;i++){
+            db.writeLong(-1);
+        }
         addNode(db,mid,numNodes,arr[0],arr[1]);
         addNode(db,mid,numNodes,arr[3],arr[4]);
+        db.seek(location);
+        db.writeLong(numNodes-1);
+        db.writeLong(mid);
+        db.writeLong(mid);
         
     }
 }
