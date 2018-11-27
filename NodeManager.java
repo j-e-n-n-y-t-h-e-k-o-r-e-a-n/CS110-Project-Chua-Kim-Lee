@@ -21,47 +21,99 @@ public class NodeManager {
     //all new nodes have at least 2 keys
     //num 1 = less
     //num2 = greater
-    public void addNode(RandomAccessFile db,long parent,long numNodes,long num1,long num2)throws IOException{
+    public void addNode(RandomAccessFile db,long parent,long numNodes,long num1,long num2,long off1,long off2)throws IOException{
         long lastRecord = 112*numNodes+16;
-        db.seek(lastRecord);
-        db.writeLong(parent);
+        db.seek(lastRecord); //go to the end of the latest record (EOF)
+        db.writeLong(parent); //write the parent
         for(int i=0;i<13;i++){
-            if(i==2)
-                db.writeLong(num1); //write the first num in slot 1
-            else if(i==5)
-                db.writeLong(num2); //write 2nd num in slot 2
-            else
-                db.writeLong(-1);
+            switch (i) {
+                case 1: //write 1st child and offset in proper place
+                    db.writeLong(num1); //write the first num in slot 1
+                    db.writeLong(off1); //write its parent
+                    break;
+                case 4: //write 2nd child and offset in proper place
+                    db.writeLong(num2); //write 2nd num in slot 2
+                    db.writeLong(off2);
+                    break;
+                default:
+                    db.writeLong(-1);
+                    break;
+            }
         }
         numNodes++;
     }
     //turn the split shit into -1
     //offset = offset of currently inserted value (in case it is the mid)
-    public void split(RandomAccessFile db,long numNodes,long[] arr,long parent,long offset)throws IOException{
+    //NOTE CHECK IF A PARENT ALR EXISTS
+    public void split(RandomAccessFile db,long numNodes,long[] arr,long parent,long[] offsets)throws IOException{
         long location = 112*parent+16+8; //skip parent
-        long find = location+16;
-        long poffset = offset;
-        Arrays.sort(arr);
-        long mid = arr[2];
-        for(int i=0;i<4;i++){ //find the offset of the middle (the one to be parent)
-            db.seek(find);
-            long offsets = db.readLong();
-            if(offsets==mid){
-                poffset = offsets;
-                break;
+        long p = 112*parent+16; //check parent of current node being checked
+        long[] arr2 = arr.clone(); //contains all keys (sorted cept for fifth
+        //offsets is array of all offsets (ex: offsets[1] is the offset of arr2[1])
+        long[] offsets2 = new long[5];
+        Arrays.sort(arr); //arr is now sorted (including 5th)
+        for(int i=0;i<5;i++){
+            long hold = arr[i]; //check the sorted array
+            for(int j=0;j<5;j++){
+                if(arr2[j]==arr[i]){// 5 4 1 => 1 4 5
+                    offsets2[i] = offsets[j]; //sort the offsets to pair up wif the ordered keys
+                }
             }
-            find+=16;
         }
+        //WHAT HAPPENS AFTER THE FOR LOOP??? HERE"S THE ANSWER
+        //each element in arr is sorted alr rite?
+        //so now theres this other array for offsets called offsets2
+        //it pairs up each key wif its offset
+        //ex: the offset of arr[1] is now in offsets2[1]
+        //WHY DO THIS????
+        //well, after sorting arr, all its keys are now messed up
+        //that's where the clone comes in
+        //before even sorting arr, we make a clone of it THAT IS STILL PAIRED WIF ITS OFFSETS
+        //so we can use that (^^^^) pairing to be able to fix the keys' order
+        //WITH REGARDS to the sorted array
+        long mid = arr[2];
+        long midoff = offsets2[2];
         db.seek(location);
-        for(int i=0;i<13;i++){
-            db.writeLong(-1);
+        addNode(db,mid,numNodes,arr[0],arr[1],offsets2[0],offsets2[1]); //id = numnodes-2 (left node)
+        addNode(db,mid,numNodes,arr[3],arr[4],offsets2[3],offsets2[4]); //id = numnodes-1 (right node)
+        handleParent(p,db,mid,midoff,numNodes);
+//        db.writeLong(numNodes-2);
+//        db.writeLong(mid);
+//        db.writeLong(midoff);//offset of mid
+//        db.writeLong(numNodes-1);
+    }
+    //id = id of parent
+    public void handleParent(long id,RandomAccessFile db,long key,long offset,long numNodes)throws IOException{
+        if(id==-1){
+            //if it has no parent
+        //before clearing just clearing the node, check first if there is a parent, if there is, just add there
+            for(int i=0;i<13;i++){
+                db.writeLong(-1);
+            }
         }
-        addNode(db,mid,numNodes,arr[0],arr[1]);
-        addNode(db,mid,numNodes,arr[3],arr[4]);
-        db.seek(location);
-        db.writeLong(numNodes-1);
-        db.writeLong(mid);
-        db.writeLong(mid);
-        
+        else{
+            //if it has a parent alr, and has space, write it there (shld prolly add a sort here)
+            //prolly just call the sort function in btmanager after every split
+            if(checkNotFull(id,db)){
+                db.writeLong(numNodes-2);
+                db.writeLong(key);
+                db.writeLong(offset);
+                db.writeLong(numNodes-1);
+            }
+        }
+    }
+    //return true if node not full
+    public boolean checkNotFull(long id,RandomAccessFile db) throws IOException{
+        long recid = 112*id+16+8; //finding the record first(skip the parent also)
+        for(int i=0;i<4;i++){
+            recid+=16; //location of offset
+            db.seek(recid);
+            long offset = db.readLong();
+            if(offset==-1){
+                db.seek(recid-8); //go to the key that has an empty space 
+                return true;
+            }
+        }
+        return false;
     }
 }
