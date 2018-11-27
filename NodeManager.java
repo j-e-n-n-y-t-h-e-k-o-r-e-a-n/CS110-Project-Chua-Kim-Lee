@@ -159,10 +159,6 @@ public class NodeManager {
         }
         return false;
     }
-    //push a value up
-    public void push(RandomAccessFile db,long id)throws IOException{
-        
-    }
     public long checkParentId(RandomAccessFile db,long id)throws IOException{
         long location = 112*id+16;
         db.seek(id);
