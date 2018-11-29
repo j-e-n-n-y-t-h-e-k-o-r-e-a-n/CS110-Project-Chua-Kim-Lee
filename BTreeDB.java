@@ -29,7 +29,7 @@ public class BTreeDB {
         }
         catch(IOException e){ 
         }
-        BTManager btm = new BTManager(dBt,numNodes);
+        BTManager btm = new BTManager(dBt,numNodes, numRecords);
         
         /*
             This is the start of looking at the inputs
@@ -61,7 +61,8 @@ public class BTreeDB {
                     // if input length is correct
                     if(input.length>=2){
                         long key = Long.parseLong(input[1]);
-                        btm.insert(0,dBt,key,numRecords);
+                        dBt.seek(8);
+                        btm.insert(dBt.readLong(),dBt,key,numRecords);
                     // adds also the key?
                     valueMan.insert(dVal,word,numRecords);
                     System.out.println(key + " inserted.");
