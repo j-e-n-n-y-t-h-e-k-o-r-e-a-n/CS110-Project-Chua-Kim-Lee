@@ -3,163 +3,252 @@ import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.util.Arrays;
 
-/*
- * To change this license header, choose License Headers in Project Properties.
- * To change this template file, choose Tools | Templates
- * and open the template in the editor.
- */
-
-/**
- *
- * @author Kim
- */
 public class NodeManager {
-    public NodeManager(){
+    BTManager bt;
+    long nNodes;
+    long numRecords;
+    public NodeManager(long numNodes, long nRecords){
         
+        nNodes = numNodes;
+        numRecords = nRecords;
     }
     //only works for beginning(when new nodes r made down
     //all new nodes have at least 2 keys
     //num 1 = less
     //num2 = greater
-    /*
-        what do you mean by change node, what is this for?
-    */
-    public void changeNode(long location,RandomAccessFile db, long parent, long num1, long num2, long off1, long off2)throws IOException{
+    
+    /**
+     * change the current node into the 1st child
+     * @param location the location of the node to be changed (formula alr done at this point)(formula: 8+recNum of node * 112)?
+     * @param db the RandomAccessFile of data.bt
+     * @param parent the record number of its new "parent"
+     * @param num1 its first key
+     * @param num2 its second key
+     * @param off1 offset of 1st key
+     * @param off2 offset of 2nd key
+     * @throws IOException 
+     */
+    public void changeNode(long location,RandomAccessFile db, long parent, long num1, long num2, long off1, long off2, long child1, long child2, long child3)throws IOException{
         db.seek(location);
         db.writeLong(parent);
-        for(int i=0;i<11;i++){
+        for(int i=0;i<7;i++){
             switch (i) {
-                case 1: //write 1st child and offset in proper place
+                case 0: //write 1st child, key and offset in proper place
+                    db.writeLong(child1);
                     db.writeLong(num1); //write the first num in slot 1
                     db.writeLong(off1); //write its parent
-                    break;
-                case 4: //write 2nd child and offset in proper place
+                    db.writeLong(child2);
                     db.writeLong(num2); //write 2nd num in slot 2
                     db.writeLong(off2);
+                    db.writeLong(child3);
                     break;
                 default:
                     db.writeLong(-1);
                     break;
             }
         }
-        
     }
-    /*
-        this method is called after a split and puts the keys and all into the new node?
-    */
-    public void addNode(RandomAccessFile db,long parent,long numNodes,long num1,long num2,long off1,long off2)throws IOException{
-        long lastRecord = 112*numNodes+16;
-        db.seek(lastRecord); //go to the end of the latest record (EOF)
+    
+    /**
+     * create a new node that automatically contains the parent and its first 2 keys and their offsets
+     * this is for the 2nd child
+     * @param db the RandomAccessFile for data.bt
+     * @param parent the node id that is to be placed as the "parent" of the new node
+     * @param num1 the first key
+     * @param num2 the second key
+     * @param off1 the offset of the first key
+     * @param off2 the offset of the second key
+     * @param start 0 if called at the very first case, 1 if called in other cases
+     * @throws IOException 
+     */
+    // 
+    public void addNode(RandomAccessFile db,long parent,long num1,long num2,long off1,long off2, long child1, long child2, long child3)throws IOException{
+            // gets the location at end of file
+            long lastRecord = (nNodes*112)+ 16;
+            System.out.println("LAST RECORD IS AT" +lastRecord);
+            db.seek(lastRecord);
+            
+        //go to the end of the latest record (EOF)
         db.writeLong(parent); //write the parent
-        for(int i=0;i<11;i++){
+        for(int i=0;i<7;i++){
             switch (i) {
-                case 1: //write 1st child and offset in proper place
+                case 0: //write 1st child, key and offset in proper place
+                    db.writeLong(child1);
                     db.writeLong(num1); //write the first num in slot 1
                     db.writeLong(off1); //write its parent
-                    break;
-                case 4: //write 2nd child and offset in proper place
+                    db.writeLong(child2);
                     db.writeLong(num2); //write 2nd num in slot 2
                     db.writeLong(off2);
+                    db.writeLong(child3);
                     break;
                 default:
                     db.writeLong(-1);
                     break;
             }
         }
-        numNodes++;
+        nNodes++;
         db.seek(0);
-        db.writeLong(numNodes); //update the numnodes at header
+        db.writeLong(nNodes); //update the numnodes at heade
+        if(checkIfRoot(nNodes-1,db)){ //moves the pointer
+            db.seek(8);
+            db.writeLong(nNodes-1);
+        }
+    }
+    
+    //make a new parent id
+    public void insert2Parent(RandomAccessFile db,long parent,long num1,long off1,long child1,long child2)throws IOException{
+        long lastRecord = 112*nNodes+16;
+        db.seek(lastRecord); //go to the end of the latest record (EOF)
+        db.writeLong(-1); //write the parent
+        
+        for(int i=0;i<10;i++){
+            switch (i) {
+                case 0:
+                    db.writeLong(child1);//write 1st child and offset in proper place
+                    System.out.println("CHILD "+child1);System.out.println("CHILD "+child2);
+                    db.writeLong(num1); //write the first num in slot 1
+                    db.writeLong(off1); //write its parent
+                    db.writeLong(child2);
+                    break;
+                default:
+                    db.writeLong(-1);
+                    break;
+            }
+        }
+        nNodes++;
+        db.seek(0);
+        db.writeLong(nNodes); //update the numnodes at heade
+        System.out.println(nNodes);
+        db.writeLong(nNodes-1);
+        
     }
     //turn the split shit into -1
     //offset = offset of currently inserted value (in case it is the mid)
     //NOTE CHECK IF A PARENT ALR EXISTS
-    public void split(RandomAccessFile db,long numNodes,long[] arr,long parent,long[] offsets)throws IOException{
-        long location = 112*parent+16+8; //skip parent
-        long p = 112*parent+16; //check parent of current node being checked
-        long[] arr2 = arr.clone(); //contains all keys (sorted cept for fifth
-        //offsets is array of all offsets (ex: offsets[1] is the offset of arr2[1])
-        long[] offsets2 = new long[5];
-        Arrays.sort(arr); //arr is now sorted (including 5th)
+    
+    /**
+     * swap 2 elements in an array
+     * @param arr the array containing the elements
+     * @param first first element to be swapped
+     * @param second second element to be swapped
+     */
+    public void swap(long[] arr, int first, int second){
+        long temp = arr[first];
+        arr[first] = arr[second];
+        arr[second] = temp;
+    }
+    
+    /**
+     * split the current node into 2 more nodes + the parent
+     * @param db the RandomAccessFile of data b t
+     * @param arr an array of keys
+     * @param topid the id of the current node that is to be split
+     * @param offsets an array of offsets
+     * @throws IOException 
+     */
+    public void split(RandomAccessFile db,long[] arr,long topid,long[] offsets, long[] children)throws IOException{
+//        long location = 112*topid+16+8; //skip parent
         /*
-            sorry i dont understand this part. what do you mean by hold and whats with the i and j why is it reversed?
-            it will probably be neater if we made a sort code from scratch then whenever arr will be swapped, offset will also be swapped the same way.
-            this way we dont really need to clone the arrays and we can "sort in place."
-            for example
-            if( left> right)
-                swap(arr[left], arr[right]);
-                swap(offsets[left], offsets[right]);
-            if this is not clear I can explain again irl!
-            OR
-            just put the whole node in an array, but itd be hassle to swap the offsets and children along with it..
+            before we do something, we should check first if the node to be split is the root node
         */
-        for(int i=0;i<5;i++){
-            long hold = arr[i]; //check the sorted array
-            for(int j=0;j<5;j++){
-                if(arr2[j]==arr[i]){// 5 4 1 => 1 4 5
-                    offsets2[i] = offsets[j]; //sort the offsets to pair up wif the ordered keys
+        long latestChild=0;
+        long locationOfParent = 112*topid+16; //check parent of current node being checked
+        System.out.println(" splitted, top id is  "+ topid);
+        db.seek(locationOfParent);
+        long parent = db.readLong(); //Record number of the node of the parent
+        System.out.println("parent is: "+parent);
+        
+        //sorting part
+        for(int i=4;i>0;i--){ //read til 4th lang
+            for(int j=i-1;j>0;j--){
+                if(arr[i]<arr[j]){
+                    swap(children, i, j);
+                    swap(arr,i,j);
+                    swap(offsets,i,j);
+                    
                 }
             }
         }
-        //WHAT HAPPENS AFTER THE FOR LOOP??? HERE"S THE ANSWER
-        //each element in arr is sorted alr rite?
-        //so now theres this other array for offsets called offsets2
-        //it pairs up each key wif its offset
-        //ex: the offset of arr[1] is now in offsets2[1]
-        //WHY DO THIS????
-        //well, after sorting arr, all its keys are now messed up
-        //that's where the clone comes in
-        //before even sorting arr, we make a clone of it THAT IS STILL PAIRED WIF ITS OFFSETS
-        //so we can use that (^^^^) pairing to be able to fix the keys' order
-        //WITH REGARDS to the sorted array
-        //NOTE TO SELF: make 1 new array (top) (handleparent) and another (right)
-        //just use current for left
+        //isolates the middle 
         long mid = arr[2];
-        long midoff = offsets2[2];
-//        db.seek(location);
-        long id = handleParent(p,db,mid,midoff,numNodes);
-        //addNode(db,mid,numNodes,arr[0],arr[1],offsets2[0],offsets2[1]); //id = numnodes-2 (left node)
-        addNode(db,id,numNodes,arr[3],arr[4],offsets2[3],offsets2[4]); //id = numnodes-1 (right node)
-        changeNode(location-8,db,id,arr[0],arr[1],offsets2[0],offsets2[1]);
-//        db.writeLong(numNodes-2);
-//        db.writeLong(mid);
-//        db.writeLong(midoff);//offset of mid
-//        db.writeLong(numNodes-1);
+        long midoff = offsets[2];
+        long parentId = findParentId(parent,db,mid,midoff); // returns parent id
+        db.seek(8); //root node
+        long rootNode = db.readLong();
+        System.out.println("looking at: "+rootNode);
+        //if current node to be split is already the root node split it.
+        if(topid == rootNode || checkNotFull(parentId, db)){
+            // rewrites the current node into left child
+            changeNode(locationOfParent,db,parentId,arr[0],arr[1],offsets[0],offsets[1],children[0], children[1], children[2] );
+            // adds the right node and rewrites the the node
+            addNode(db,parentId,arr[3],arr[4],offsets[3],offsets[4], children[3], children[4],children[5]);
+            //record id of this node should be the current number of nodes, because split always puts the right child at the bottom
+            // we rewrtite parentif(checkNotFull(node, db)){
+            placeParent(parentId,mid,midoff,db,topid,nNodes-1);
+        }
+        else{
+            //it looks like it doesnt go here?
+            
+            //update to keys of parent
+            //update node we are looking at to parent node
+            //update to offset of parent
+            //update to children of parent
+            System.out.println("WENT TO ELSE");
+            split(db,getAllKeysOfParent(mid,parentId,db),parentId,getAllOffsetsOfParent(midoff, parentId, db),getAllChildrenOfParent(children[5], parentId, db));
+            
+        }
     }
+    // key - middlemost value
+    public void placeParent(long parentId, long key,long offset,RandomAccessFile db,long child1,long child2)throws IOException{
+        // happens after split we place the middlemost value to parent id
+            System.out.println("parentId in placeParent " + parentId);
+            // gets location of parent
+            long parentLocation = (112*(parentId-1)) + 16;
+            db.seek(parentLocation+=8); //to go to the child
+            db.writeLong(child1); //it doesnt write the value correctly
+            if(nNodes ==2 || parentId == -1 ){
+             insert2Parent(db,parentId,key,offset,child1,child2); 
+            }else if(checkNotFull(parentId,db)){ //if not full, write to parent
+                 System.out.println("WROTE TO PARENT: "+ key);
+                    db.seek(parentLocation);
+                    db.writeLong(key);
+                    db.writeLong(offset);
+                    db.writeLong(child2);
+                    sort(db,numRecords,parentId);
+                    db.seek(0);
+                    db.writeLong(nNodes);
+            }
+
+            else{
+                insert2Parent(db,parentId,key,offset,child1,child2); // makes a new node and insert child key and others
+                }
+            }
+        
     //id = id of parent
-    /*
-        what does this do?
-        to me, this looks like a method that does all the actions an insert would do?
-        like checking a node if it is full, splitting, then adding a node if it is full
-        please explain this to me tomorrow!
-    */
-    public long handleParent(long id,RandomAccessFile db,long key,long offset,long numNodes)throws IOException{
+    /**
+     * find the new id of the "parent" (middle element before splitting)
+     * @param parentid
+     * @param db
+     * @param key
+     * @param offset
+     * @return
+     * @throws IOException 
+     */
+    public long findParentId(long parentid,RandomAccessFile db,long key,long offset)throws IOException{
         long pid=0; //id of where itll be placed
-        if(id==-1){
-            //if it has no parent to be pushed to, make a new node and set it as root
-            addNode(db,-1,numNodes,key,-1,offset,-1);
-            pid = numNodes-1;
-            setRootNode(pid,db);
-            //randomaccessfile,parent id,numnodes,key1,key2,offset1,offset2
+        if(parentid==-1){
+            pid = nNodes+1;
         }
         else{
             //if it has a parent alr, and has space, write it there (shld prolly add a sort here)
             //prolly just call the sort function in btmanager after every split
-            /*
-                i dont think we need to sort it again because its should be already sorted.
-                it is sorted at input, then when you split it should still be sorted.
-            
-            */
-            if(checkNotFull(id,db)){ //check the record based on id
-                db.writeLong(numNodes-2);
-                db.writeLong(key);
-                db.writeLong(offset);
-                db.writeLong(numNodes-1);
-                pid = id;
+            if(checkNotFull(parentid,db)){ //check the record based on id
+                pid = parentid;
             }
             else{ //if the one to be pushed to it is the 5th num
                 long[] arr = new long[5]; //arr of keys
                 long[] offsets = new long[5]; //arr of offsets
-                long recid = 112*id+16;
+                long recid = 112*parentid+16;
                 db.seek(recid);
                 long par = db.readLong();//parent of record
                 for(int i=0;i<4;i++){
@@ -168,33 +257,191 @@ public class NodeManager {
                     arr[i] = db.readLong(); //place key
                     offsets[i] = db.readLong(); //place respective offset
                 }
-                split(db,numNodes,arr,par,offsets);
-                //^^^ WHAT IF IT SPLITS AND THE NUMBER RN IS THE NEW PARENT
             }
         }
         return pid;
     }
-    //return true if node not full
-    public boolean checkNotFull(long id,RandomAccessFile db) throws IOException{
-        long recid = 112*id+16+8; //finding the record first(skip the parent also)
+    
+    /**
+     * check if a node is full or not (if it has 4 keys alr
+     * @param nodeId the record id of the node to be checked
+     * @param db the RandomAccessFile of data.bt
+     * @return whether it's full or not
+     * @throws IOException 
+     */
+    public boolean checkNotFull(long nodeId,RandomAccessFile db) throws IOException{
+        long recid = 112*nodeId+16+24; //finding the record first(skip the parent also)
         for(int i=0;i<4;i++){
-            recid+=16; //location of offset
             db.seek(recid);
             long offset = db.readLong();
             if(offset==-1){
-                db.seek(recid-16); //go to the child node before the key thts empty
+                db.seek(recid-8); //go to the the key thts empty
                 return true;
             }
+            recid+=24; //location of offset
         }
         return false;
     }
+    
+    /**
+     * check the parent of a node
+     * @param db the RandomAccessFile of data.bt
+     * @param id the record id of the node to be checked
+     * @return the parent id of the node
+     * @throws IOException 
+     */
     public long checkParentId(RandomAccessFile db,long id)throws IOException{
         long location = 112*id+16;
-        db.seek(id);
+        db.seek(location);
         return db.readLong();
     }
+    
+    /**
+     * set the root node id in the header
+     * @param id id of the root node
+     * @param db RandomAccessFile of data.bt
+     * @throws IOException 
+     */
     public void setRootNode(long id,RandomAccessFile db)throws IOException{
         db.seek(8);
         db.writeLong(id);
     }
+    
+    /**
+     * return the current number of nodes so BTManager can access it
+     * @return the current number of nodes
+     */
+    public long returnNodes(){
+        return nNodes;
+    }
+    /**
+     * Modifies the current number of nodes in the case that a different class would
+     * modify the number of nodes
+     * @param n what the value of nNodes should be
+     * @return 
+     */
+    
+    // updates the number of nodes
+    public long updateNodes(long n){
+        nNodes=n;
+        return nNodes;
+    }
+    
+    // checks if the new node is the root
+    public boolean checkIfRoot(long newNodeid,RandomAccessFile db)throws IOException{
+        long locationOfParent = 112*newNodeid+16;
+        db.seek(locationOfParent);
+        return(db.readLong()==-1);
+    }
+    /**
+     * sort an entire node
+     * @param db the RandomAccessFile of data.bt
+     * @param numRecords the current number of records
+     * @param node the record id of the node to be sorted
+     * @throws IOException 
+     */
+    public void sort(RandomAccessFile db, long numRecords,long node)throws IOException{
+    // lets sort! :(
+        long location = 112*node+8+24; 
+        long location2 = location;
+        
+            for(int i =3; i>0; i--){// outer loop 1 2 3
+                for(int j = i; j>0; j-- ){ // 
+                    db.seek(location);
+                    long key1 = db.readLong();
+                    long off1 = db.readLong();
+                    long child1 = db.readLong();
+                    
+                    if(off1 ==-1 ){
+                        break;
+                    }
+                    long key2 = db.readLong();
+                    long off2 = db.readLong();
+                    long child2 = db.readLong();
+                    System.out.println(key1+" "+key2);
+                    if(key2<key1 && off2 != -1){
+                       db.seek(location);
+                       db.writeLong(key2);
+                       db.writeLong(off2);
+                       db.writeLong(child2);
+                    //go to location of keyVal key and write the first key and offset instead
+                       db.writeLong(key1);
+                       db.writeLong(off1);
+                       db.writeLong(child1);
+                    
+                    location+=24;
+                }
+                location=location2;
+            }
+            
+        }          
+    }
+    public long findKey(long key, long id, RandomAccessFile db)throws IOException{
+        long location = 0;
+        long current = 112*id+8+24;
+        for(long i=0;i<4;i++){
+            db.seek(current);
+            long keyhold = db.readLong();
+            if(keyhold==key && db.readLong()!=-1)
+                return i;
+            current+=24;
+        }
+        return location;
+    }
+        
+    /**
+     * get all keys of the current node (including the fifth one that doesn't get inserted)
+     * @param key the fifth key
+     * @param id the record id of the node
+     * @param db the RandomAccessFile of data.bt
+     * @return the array of keys
+     * @throws IOException 
+     */
+    public long[] getAllKeysOfParent(long key,long id,RandomAccessFile db)throws IOException{
+        long[] arr = new long[5];
+        long recid = 112*id+16+16; //16 = header, 16 =  skips parent and child 
+        for(int i=0;i<4;i++){
+            db.seek(recid);
+            arr[i] = db.readLong();
+            recid+=24;
+        }
+        
+        arr[4] = key;
+        for(int n = 0; n<4; n++){
+            System.out.println("PARENT KEYS ARE: " +  arr[n]);
+                }
+        return arr;
+    }
+    
+    public long[] getAllChildrenOfParent (long child, long id, RandomAccessFile db)throws IOException{
+        long[] arr = new long[6];
+        long recid = 112*id + 16 + 8; //16=header, 8 = skip parent (reads the child)
+                for(int i = 0; i < 5; i++){
+                    db.seek(recid);
+                    arr[i] = db.readLong();
+                    recid += 24;
+                }
+                arr[5]=child;
+                for(int n = 0; n<5; n++){
+            System.out.println("CHILDREN KEYS ARE: " +  arr[n]);
+                }
+        return arr;
+    }
+        public long[] getAllOffsetsOfParent(long offset, long id, RandomAccessFile db) throws IOException{
+        long[] offsets = new long[5];
+        long recid = 112*id+16+24; //16 = header, 16 = skip parent and child and key (read offsets)
+        for(int i=0;i<4;i++){
+            db.seek(recid);
+            long off = db.readLong();
+//            System.out.println(off);
+            offsets[i] = off;
+            recid+=24;
+        }
+        offsets[4] = offset;
+        for(int n = 0; n<4; n++){
+            System.out.println("OFFSET KEYS ARE: " +  offsets[n]);
+                }
+        return offsets;
+    }
+    
 }

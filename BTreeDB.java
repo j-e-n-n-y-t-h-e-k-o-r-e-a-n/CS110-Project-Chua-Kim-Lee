@@ -1,6 +1,9 @@
 import java.util.*;
 import java.io.*;
 import java.nio.charset.StandardCharsets;
+/*
+    theres another variable for number of nodes here, maybe theres a way to have this reference to nodemanager but im not so sure
+*/
 public class BTreeDB {
     // RandomAccessFile and File set as universal variables so that other methods
     //outside the try catch statement can reference to it.
@@ -26,7 +29,7 @@ public class BTreeDB {
         }
         catch(IOException e){ 
         }
-        BTManager btm = new BTManager(dBt);
+        BTManager btm = new BTManager(dBt,numNodes, numRecords);
         
         /*
             This is the start of looking at the inputs
@@ -57,9 +60,9 @@ public class BTreeDB {
                 case "insert":
                     // if input length is correct
                     if(input.length>=2){
-                        //we might need the key but for now I havent used it in anything
                         long key = Long.parseLong(input[1]);
-                        btm.insert(0,dBt,key,numNodes,numRecords);
+                        dBt.seek(8);
+                        btm.insert(dBt.readLong(),dBt,key,numRecords);
                     // adds also the key?
                     valueMan.insert(dVal,word,numRecords);
                     System.out.println(key + " inserted.");
@@ -104,6 +107,7 @@ public class BTreeDB {
             if(key==dBt.readLong()){
                 dBt.seek(16+24*i); //get offset
                 long offset = dBt.readLong(); //check the offset (written in bt)
+                System.out.println("offset is "+offset);
                 dVal.seek(256*offset+8); //8 = numrecord
                 Byte b = dVal.readByte(); //reads the string length written in val
                 int strlen = b.intValue(); //chhange it to int
