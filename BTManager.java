@@ -2,235 +2,324 @@
 import java.io.IOException;
 import java.io.RandomAccessFile;
 
-/*
- * To change this license header, choose License Headers in Project Properties.
- * To change this template file, choose Tools | Templates
- * and open the template in the editor.
- */
-
-/**
- *
- * @author Kim
- */
 public class BTManager {
     NodeManager nm;
-    public BTManager(RandomAccessFile db)throws IOException{
-        nm = new NodeManager();
-        nm.addNode(db, -1, 0,-1,-1,-1,-1);
+//    long nNodes;
+    /**
+     * constructor of BTManager (create a new node if there is none existing)
+     * @param db the RandomAccessFile of data.bt
+     * @param numNodes the current number of nodes (to know if you have to make a new node)
+     * @throws IOException 
+     */
+    public BTManager(RandomAccessFile db,long numNodes, long numRecords)throws IOException{
+        nm = new NodeManager(numNodes, numRecords);
+        //when a node does not exist
+        //when the data.bt is just being created for the first time
+        if(numNodes==0){
+            System.out.println(numNodes);
+            nm.addNode(db, -1, -1,-1,-1,-1);
+           // nNodes = nm.returnNodes();
+        }
+        //in the case a data.bt already exists and nodes exist
+        else
+            nm.updateNodes(numNodes);
+            //nNodes=numNodes;
     }
+    
+    //NOTE: OFFSET IS JUST NUMRECORDS, NODE ID IS JUST NUMNODES-1
     /*
-    1.	ID of Parent Node 8 location
-    2.	ID of 1st Child Node 16
-    3.	1st Key 24
-    4.	Offset of 1st Value 32
-    5.	ID of 2nd Child Node 40
-    6.	2nd Key 48
-    7.	Offset of 2nd Value 56
-    8.	ID of 3rd Child Node 64
-    9.	3rd Key 72
-    10.	Offset of 3rd Value 80
-    11.	ID of 4th Child Node 88
-    12.	4th Key 96
-    13.	Offset of 4th Value 104
-    14.	ID of 5th Child Node 112
+    header 1 8
+    header 2 16
+    1.	ID of Parent Node 8 location 24
+    2.	ID of 1st Child Node 16 32
+    3.	1st Key 24 40
+    4.	Offset of 1st Value 32 48
+    5.	ID of 2nd Child Node 40 56
+    6.	2nd Key 48 64
+    7.	Offset of 2nd Value 56 72
+    8.	ID of 3rd Child Node 64 80
+    9.	3rd Key 72 88
+    10.	Offset of 3rd Value 80 96
+    11.	ID of 4th Child Node 88 104
+    12.	4th Key 96 112
+    13.	Offset of 4th Value 104 120
+    14.	ID of 5th Child Node 112 128
     */
 //    //check from top which way to go(left right) then check child.....
-    public void insert(long parent,RandomAccessFile db,long key,long numRecords,long numNodes) throws IOException{
-        //check if full
-        
-        /*
-            this conditional is fulfilled for the first 5 inputs only.
-            if so we dont need to check if its full?
-            
-            before we insert to the parent, we have to check if the key can be inserted in the parent key's left or right child
-            insert only inserts to the parent when a child becomes full
-        
-        */
-        if(checkNotFull(parent,db) && numRecords+1>5){ 
-            long pbytes = 16;//8 bytes numrecords, 8 bytes root record num (modify into formula for more nodes)
-            db.seek(pbytes);
-            db.writeLong(parent); //write parent
-            long bytes = 24*numRecords+24; //24 48 72
-            db.seek(bytes);
-            db.writeLong(-1);//write child id
-            db.writeLong(key); //write key
-            db.writeLong(numRecords); //write offset(just numRecords)
+    
+    /**
+     * inserts the key wherever it should be inserted
+     * @param parent the parent id of the node where it is to be inserted (starts from root id going down)
+     * @param db the RandomAccessFile of data.bt
+     * @param key the key to be inserted
+     * @param numRecords the current number of records (used as the offset of the key)
+     * @throws IOException 
+     */
+    public void insert(long parent,RandomAccessFile db,long key,long numRecords) throws IOException{
+        //beginning
+        if(nm.returnNodes()==1){ // conditional for only when there is only one node
+            if(checkNotFull(nm.returnNodes()-1,db)){ //checks if true then root is not full
+                // if not full 
+                // we insert key and offset to current node
+                System.out.println("numRecords" +numRecords);
+                long keyLocation = 8+24*(numRecords+1); 
+                db.seek(keyLocation); 
+                db.writeLong(key);
+                db.writeLong(numRecords);
+
+                // just in case writes the value in number of nodes and root node
+                db.seek(0);
+                db.writeLong(1);
+                db.writeLong(0);
+                db.writeLong(-1); //parent
+              
+            }else{ // if root is full then split
+                nm.split(db,getAllKeys(key,nm.returnNodes()-1,db),nm.returnNodes()-1, getAllOffsets(numRecords,nm.returnNodes()-1,db));
+            }
             //end of record
-            /*
-                i think here we can limit the sort in between the long bytes and long bytes+112    
-            */
-            sort(db,numRecords+1,key);
             
+            sort(db,numRecords+1,nm.returnNodes()-1);
+            
+        }else{
+            db.seek(8);
+            System.out.println(insert2childOrnot(db.readLong(),db,key,numRecords));
         }
-        else{
-            insertLocation(parent,db,key,numNodes,numRecords);
-        }
-        db.seek(0);
-        db.writeLong(numNodes+1);
-        db.writeLong(0); //root
     }
-    //NOTES: 24*i = child node
-    //24*i+8 = key
-    //24*i+16 = offset
     
-    /*
-        we could add a parameter to sort so that it will be sort from long1 upto long2, instead of sorting the whole thing all the time
-    */
+    /**
+     * sort an entire node
+     * @param db the RandomAccessFile of data.bt
+     * @param numRecords the current number of records
+     * @param node the record id of the node to be sorted
+     * @throws IOException 
+     */
     public void sort(RandomAccessFile db, long numRecords,long node)throws IOException{
-        //node = node id to be sorted
-        long location = 112*node+16+8; //8 = parent(skip it)
-        /*
-            it would be more efficient to sort it by node instead of the whole thing
-        */
-        if(numRecords>1){ //fix
-            for(long i=0;i<3;i++){
-                /*
-                    location must be different at each iteration
-                    (1)1st 8 bytes = 1st child
-                    (2)next 8 bytes = key itself
-                    (3)next 8 bytes = offset
-                    (4)next 8 bytes = 1st/2nd child
-                */
-                db.seek(location);
-                //first key and offset
-                long child1 = db.readLong();
-                long first = db.readLong();
-                long off1 = db.readLong();
-                //second key and offset
-                long child2 = db.readLong();
-                long second = db.readLong();
-                long off2 = db.readLong();
-                //if i ==3, only exchange the
-                if(second<first && off2!=-1){ //if the right key is smaller than left (ex: 5 3) and second isn't empty
-                    //go back to location of first key and write the second key and offset instead
-                    db.seek(location-16);
-                    db.writeLong(second);
-                    db.writeLong(off2);
-                    //go to location of second key and write the first key and offset instead
-                    db.seek(location+16);
-                    db.writeLong(first);
-                    db.writeLong(off1);
+    // lets sort! :(
+        long location = 112*node+16+8; 
+        long location2 = location;
+
+        if(numRecords>1){ // if no record no need to sort
+            for(int i =3; i>0; i--){// outer loop 1 2 3
+                for(int j = i; j>0; j-- ){ // 
+                    db.seek(location);
+                    long child1 = db.readLong();
+                    long key1 = db.readLong();
+                    long off1 = db.readLong();
+                    
+                    if(off1 ==-1 ){
+                        break;
+                    }
+                    long child2 = db.readLong();
+                    long key2 = db.readLong();
+                    long off2 = db.readLong();
+                    
+                    if(key2<key1 && off2 != -1){
+                       db.seek(location);
+                       db.writeLong(child2);
+                       db.writeLong(key2);
+                       db.writeLong(off2);
+                    //go to location of keyVal key and write the first key and offset instead
+                       db.writeLong(child1);
+                       db.writeLong(key1);
+                       db.writeLong(off1);
+                    }
+                    location+=24;
                 }
+                location=location2;
+               }
+              }          
             }
-        }
-    }
-    //check if you need to make a new node
-    //CONDITIONS(?)
-    //1. there is no existing node
-    //2. 1st high and low (higher than first input and lower than first input)
-    //3. all nodes are full
     
-    //NOTE TO SELF: IN 112*I+16, RECORD NUMS START WITH 0
-    //check whether to put as left child or right
-    //recursive
-    //root = parent as of the moment (top to bottom so yea)
-    
-    /*
-       i dont understand this that much...
+    /**
+     * determine which path the key should follow (which child to insert it to)
+     * @param root the node to be checked (start from root then see which child node is right then go down)
+     * @param db the RandomAccessFile of data b t
+     * @param key the key to be inserted
+     * @param numRecords the current number of records (used as offset)
+     * @throws IOException 
+     */
+    public String insert2childOrnot(long root,RandomAccessFile db,long key,long numRecords) throws IOException{
+        long keyVal;  long offsetVal; long offsetVal2; long leftChildVal; long rightChildVal; long lastChildVal; long offset = numRecords; 
+        System.out.println("root: " + root);
         
-        
-    */
-    public void insertLocation(long root,RandomAccessFile db,long key,long numNodes,long numRecords) throws IOException{
-        long first = -1; //just to compare the key to a "left" value (NOTE: ALL KEYS ARE AT LEAST 0)
-        long second;
-//        do{
-        long location = 112*root+16; //location of record
-        /*
-            seek wasnt called so what is par reading?
-        */
-        long par = db.readLong(); //parent of current node
-        for(long i=0;i<4;i++){
-            location+=24; //8*3
-            db.seek(location); //read ith key of the node
-            second = db.readLong();
-            if(key>first && key<second){ 
-                location-=8;
-                db.seek(location); //check the child node's value
-                long childl = db.readLong(); //find where the child node is
-                if(childl==-1 && root<numNodes){ //find out if you're at bottommost node alr (MODIFY MAYBE)
-                    //HOW TO FIND OUT IF ITS THE BOTTOMMOST OMG
-                    //if bottommost is not full, insert
-                    if(checkNotFull(root,db)){
+        long locationOfParent = 112*root+16; //location of parent
+        db.seek(locationOfParent);
+        //records parentId
+        long parentVal = db.readLong(); //parent of current node
+        for(long i=1;i<=4;i++){
+            // checks through all keys with offset
+            // must check if offset is -1 or not with the key
+            
+            // records key value
+            long locationOfKey = locationOfParent -8+24*(i); // (i) because we need to increase the value for every iteration and i starts with 1;
+            db.seek(locationOfKey); //read ith key of the node
+            keyVal = db.readLong();
+            System.out.println(" Key value " + keyVal);
+            
+            // records the offset value
+            long locationOfOffset = locationOfParent +24*(i); 
+            db.seek(locationOfOffset); 
+            offsetVal = db.readLong();
+            System.out.print(" Offset value " + offsetVal);
+            
+            db.seek(locationOfOffset+24);
+            offsetVal2 =db.readLong();
+            System.out.print(" Offset2 value " + offsetVal2);
+            
+            // records left child value
+            long locationOfLeftChild = locationOfParent +8+24*(i-1);
+            db.seek(locationOfLeftChild);
+            leftChildVal = db.readLong();
+            System.out.print(" left value " + leftChildVal);
+            
+            // records the right child value
+            long locationOfRightChild = locationOfLeftChild+24;
+            db.seek(locationOfRightChild);
+            rightChildVal = db.readLong();
+            System.out.print(" right value " + rightChildVal);
+            
+            // records last child 
+            // used in the case that key is greater than last key
+            long locationOfLastChild = locationOfParent +112-8;
+            db.seek(locationOfLastChild);
+            lastChildVal = db.readLong();
+            System.out.print(" last value " + lastChildVal);
+            
+            //key - to be inserted
+            // keyVal - to be compared to
+            // offset - check if not -1
+            // when it reaches 4th iteration we can assume theres no space
+            System.out.println(checkNotFull(root, db));
+            if(key<keyVal && offset != -1){ // if key is smaller than key val check leftchild
+                if(leftChildVal == -1){ // checks if at bottomost
+                    // check if full
+                    if(checkNotFull(root, db)){ // if true then not full, there's space :)
+                        // adds current key to the node
+//                        locationOfKey+=24;
+//                        db.seek(locationOfKey);
                         db.writeLong(key);
-                        db.writeLong(numRecords-1);
-                        //sort here
+                        // adds key's offset to the node
+//                        locationOfOffset+=24;
+//                        db.seek(locationOfOffset);
+                        db.writeLong(offset);
+                        // calls sort
+                        sort(db, numRecords, root);
+                        break;
+                     
+                    }else{ // if full, split node :(
+                        nm.split(db,getAllKeys(key,root,db),root, getAllOffsets(numRecords,root,db));
+                        break;
                     }
-                    else{ //if full then split it
-                        //db,numnodes,arr of keys,parent, arr of offsets
-                        nm.split(db, numNodes, getAllNums(key,root,db),par,getAllOffsets(numRecords-1,root,db));
-                    }
+                }else{ // if left child val is not -1 go to the child node
+                    root = leftChildVal;
+                    // will repeat the search hell
+                    insert2childOrnot(root, db, key, numRecords );
                 }
-                else if(childl==-1){
-                    //if there is no child node but the key should go there, make node
-                    /*
-                        if there is no child node then you cant make a node for it. nodes will only be made when a node becomes full.
-                    */
+                break;
+            }else if(i==4 && offsetVal != -1 && rightChildVal == -1){ // check if current node is full and no child node after
+                // then add current key to current node and split
+                  nm.split(db,getAllKeys(key,root,db),root, getAllOffsets(numRecords,root,db));
+                  break;
+            }else if(offsetVal != -1 && offsetVal2 == -1 && key>keyVal){ // for checking the right child if current node its checking is not full
+                // if right child is not -1, there is a right child
+                if(rightChildVal != -1){ // enter rightchild and search right child through recursion
+                    root = rightChildVal;
+                    insert2childOrnot(root, db, key, numRecords );
+                }else{// if none then insert key to current node
+                        locationOfKey+=24;
+                        db.seek(locationOfKey);
+                        db.writeLong(key);
+                        // adds key's offset to the node
+                        locationOfOffset+=24;
+                        db.seek(locationOfOffset);
+                        db.writeLong(offset);
+                        // calls sort
+                        sort(db, numRecords, root);
+                        break; 
                 }
-                else{
-        //check first if full before going to child
-                    insertLocation(childl,db,key,numNodes,numRecords); //go to where the child is and check all keys
-                    //and find a spot
-                }
-//                //write at the end
-//                db.seek(24*i+8);
-//                db.seek(112*numNodes+16); //112 = next record (MODIFY)(only leads you to second record)
-//                db.writeLong(parent);
-//                long j=1;
-//                while (true){
-//                for(long j=0;j<4;j++){
-//                    if(db.readLong()==-1){ //check for a slot
-//                        db.writeLong(key);
-//                        break;
-//                    }
-//                    j++;
-//                    db.seek(112+16+8*j); //adjust to check the slot for the next key
-//                }
-//                }
-//                break;
-            first = second; //left key
+                break;// two breaks cause theres a iteration inside a recursion 
+            }else{
+                // blank just to move on to the next iteration
             }
         }
-        db.seek(0);
-        db.writeLong(0); //num of root id supposedly
-        db.writeLong(numNodes);
+        return "yeah";
     }
-    /*
-        whats id?
-        does this really get all offsets or offsets within a specific node?
-        same question for getAllNums
-    */
+    
+    /**
+     * collect all the offsets of the current node (including the fifth one) (for pushing purposes)
+     * @param offset the offset of the fifth one (doesn't get inserted but needs to be stored)
+     * @param id the record id of the node
+     * @param db the RandomAccessFile of data.bt
+     * @return the array of offsets
+     * @throws IOException 
+     */
     public long[] getAllOffsets(long offset, long id, RandomAccessFile db) throws IOException{
         long[] offsets = new long[5];
         long recid = 112*id+16+24; //16 = header, 16 = skip parent and child and key (read offsets)
         for(int i=0;i<4;i++){
-            offsets[i] = db.readLong();
-            recid+=16;
+            db.seek(recid);
+            long off = db.readLong();
+//            System.out.println(off);
+            offsets[i] = off;
+            recid+=24;
         }
         offsets[4] = offset;
         return offsets;
     }
-    public long[] getAllNums(long key,long id,RandomAccessFile db)throws IOException{
+    // p c k o c k o c k o c k o c
+    //return true  if the node is the bottommost alr
+    public boolean checkIfLast(long id, RandomAccessFile db) throws IOException{
+        long recid = 112*id+16+8; //16 = header, 16 = skip parent and child and key (read offsets)
+        for(int i=0;i<5;i++){
+            db.seek(recid);
+            long child = db.readLong();
+            if(child!=-1)
+                return false;
+            recid+=24;
+        }
+        return true;
+    }
+    
+    /**
+     * get all keys of the current node (including the fifth one that doesn't get inserted)
+     * @param key the fifth key
+     * @param id the record id of the node
+     * @param db the RandomAccessFile of data.bt
+     * @return the array of keys
+     * @throws IOException 
+     */
+    public long[] getAllKeys(long key,long id,RandomAccessFile db)throws IOException{
         long[] arr = new long[5];
         long recid = 112*id+16+16; //16 = header, 16 = skip parent and child (read the key)
         for(int i=0;i<4;i++){
+            db.seek(recid);
             arr[i] = db.readLong();
-            recid+=16;
+            recid+=24;
         }
         arr[4] = key;
         return arr;
     }
+    
     //return true if node not full
+    /**
+     * check if a node still has space (not yet 4 keys)
+     * @param id the record id of the node being checked
+     * @param db the RandomAccessFile of data.bt
+     * @return true if there is space, and false if it's full
+     * @throws IOException 
+     */
     public boolean checkNotFull(long id,RandomAccessFile db) throws IOException{
-        long recid = 112*id+16+8; //finding the record first(skip the parent also)
+        long recid = 112*id+16+24; //finding the record first(skip the parent also)
         for(int i=0;i<4;i++){
-            recid+=16; //location of offset
             db.seek(recid);
-            db.readLong();
-            if(recid==-1){
+            long offset = db.readLong();
+            if(offset==-1){
                 db.seek(recid-8); //go to the key that has an empty space 
                 return true;
             }
+            recid+=24; //location of offset
         }
         return false;
     }
+    
 }
