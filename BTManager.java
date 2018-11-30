@@ -17,7 +17,7 @@ public class BTManager {
         //when the data.bt is just being created for the first time
         if(numNodes==0){
             System.out.println(numNodes);
-            nm.addNode(db, -1, -1,-1,-1,-1);
+            nm.addNode(db, -1, -1,-1,-1,-1,-1,-1,-1);
            // nNodes = nm.returnNodes();
         }
         //in the case a data.bt already exists and nodes exist
@@ -74,10 +74,9 @@ public class BTManager {
                 db.writeLong(-1); //parent
               
             }else{ // if root is full then split
-                nm.split(db,getAllKeys(key,nm.returnNodes()-1,db),nm.returnNodes()-1, getAllOffsets(numRecords,nm.returnNodes()-1,db));
+                nm.split(db,getAllKeys(nm.returnNodes()-1,key,db),nm.returnNodes()-1, getAllOffsets(numRecords,nm.returnNodes()-1,db), getAllChildren(nm.returnNodes()-1,-1, db));
             }
             //end of record
-            
             sort(db,numRecords+1,nm.returnNodes()-1);
             
         }else{
@@ -140,7 +139,7 @@ public class BTManager {
      */
     public String insert2childOrnot(long root,RandomAccessFile db,long key,long numRecords) throws IOException{
         long keyVal;  long offsetVal; long offsetVal2; long leftChildVal; long rightChildVal; long lastChildVal; long offset = numRecords; 
-        System.out.println("root: " + root);
+        System.out.println("currently looking at node# " + root);
         
         long locationOfParent = 112*root+16; //location of parent
         db.seek(locationOfParent);
@@ -162,9 +161,13 @@ public class BTManager {
             offsetVal = db.readLong();
             System.out.print(" Offset value " + offsetVal);
             
+            if(i != 4){
             db.seek(locationOfOffset+24);
             offsetVal2 =db.readLong();
             System.out.print(" Offset2 value " + offsetVal2);
+            }else{
+                offsetVal2 = -1;
+            }
             
             // records left child value
             long locationOfLeftChild = locationOfParent +8+24*(i-1);
@@ -194,20 +197,14 @@ public class BTManager {
                 if(leftChildVal == -1){ // checks if at bottomost
                     // check if full
                     if(checkNotFull(root, db)){ // if true then not full, there's space :)
-                        // adds current key to the node
-                        locationOfKey+=24;
-                        db.seek(locationOfKey);
                         db.writeLong(key);
-                        // adds key's offset to the node
-                        locationOfOffset+=24;
-                        db.seek(locationOfOffset);
                         db.writeLong(offset);
                         // calls sort
                         sort(db, numRecords, root);
                         break;
                      
                     }else{ // if full, split node :(
-                        nm.split(db,getAllKeys(key,root,db),root, getAllOffsets(numRecords,root,db));
+                        nm.split(db,getAllKeys(root,key,db),root, getAllOffsets(numRecords,root,db), getAllChildren(root, lastChildVal, db));
                         break;
                     }
                 }else{ // if left child val is not -1 go to the child node
@@ -218,7 +215,7 @@ public class BTManager {
                 break;
             }else if(i==4 && offsetVal != -1 && rightChildVal == -1){ // check if current node is full and no child node after
                 // then add current key to current node and split
-                  nm.split(db,getAllKeys(key,root,db),root, getAllOffsets(numRecords,root,db));
+                  nm.split(db,getAllKeys(root,key,db),root, getAllOffsets(numRecords,root, db),getAllChildren(root,lastChildVal,db));
                   break;
             }else if(offsetVal != -1 && offsetVal2 == -1 && key>keyVal){ // for checking the right child if current node its checking is not full
                 // if right child is not -1, there is a right child
@@ -288,7 +285,7 @@ public class BTManager {
      * @return the array of keys
      * @throws IOException 
      */
-    public long[] getAllKeys(long key,long id,RandomAccessFile db)throws IOException{
+    public long[] getAllKeys(long id,long key, RandomAccessFile db)throws IOException{
         long[] arr = new long[5];
         long recid = 112*id+16+16; //16 = header, 16 = skip parent and child (read the key)
         for(int i=0;i<4;i++){
@@ -300,6 +297,17 @@ public class BTManager {
         return arr;
     }
     
+    public long[] getAllChildren (long id, long child, RandomAccessFile db)throws IOException{
+        long[] arr = new long[6];
+        long recid = 112*id + 16 + 8; //16=header, 8 = skip parent (reads the child)
+                for(int i = 0; i < 5; i++){
+                    db.seek(recid);
+                    arr[i] = db.readLong();
+                    recid += 24;
+                }
+                arr[5] = child;
+        return arr;
+    }
     //return true if node not full
     /**
      * check if a node still has space (not yet 4 keys)
