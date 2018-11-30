@@ -195,12 +195,12 @@ public class BTManager {
                     // check if full
                     if(checkNotFull(root, db)){ // if true then not full, there's space :)
                         // adds current key to the node
-                        locationOfKey+=24;
-                        db.seek(locationOfKey);
+//                        locationOfKey+=24;
+//                        db.seek(locationOfKey);
                         db.writeLong(key);
                         // adds key's offset to the node
-                        locationOfOffset+=24;
-                        db.seek(locationOfOffset);
+//                        locationOfOffset+=24;
+//                        db.seek(locationOfOffset);
                         db.writeLong(offset);
                         // calls sort
                         sort(db, numRecords, root);

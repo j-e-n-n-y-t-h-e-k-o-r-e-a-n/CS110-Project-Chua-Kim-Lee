@@ -117,10 +117,11 @@ public class NodeManager {
         }
     }
     
+    //make a new parent id
     public void insert2Parent(RandomAccessFile db,long parent,long num1,long off1,long child1,long child2)throws IOException{
         long lastRecord = 112*nNodes+16;
         db.seek(lastRecord); //go to the end of the latest record (EOF)
-        db.writeLong(parent); //write the parent
+        db.writeLong(-1); //write the parent
         
         for(int i=0;i<10;i++){
             switch (i) {
@@ -140,10 +141,8 @@ public class NodeManager {
         db.seek(0);
         db.writeLong(nNodes); //update the numnodes at heade
         System.out.println(nNodes);
-        if(checkIfRoot(nNodes-1,db)){ // checks root id
-            db.seek(8);
-            db.writeLong(nNodes-1);
-        }
+        db.writeLong(nNodes-1);
+        
     }
     //turn the split shit into -1
     //offset = offset of currently inserted value (in case it is the mid)
@@ -200,17 +199,17 @@ public class NodeManager {
         // adds the right node and rewrites the the node
         addNode(db,parentId,arr[3],arr[4],offsets[3],offsets[4]); //id = numnodes-1 (right node)
         // we rewrtite parent
-        
+        placeParent(parentId,mid,midoff,db,topid,nNodes-1);
         
         // check if parent node has been created if not
-        if(parentId>=nNodes){
-             insert2Parent(db,-1,mid,midoff,topid,nNodes-1);  // creates parent node
-             // parentId, key, offset, db, child1, child 2
-         }else{
-             checkNotFull(parentId,db);
-             db.writeLong(-1);
-             db.writeLong(midoff);
-         }
+//        if(parentId>=nNodes){
+//             insert2Parent(db,-1,mid,midoff,topid,nNodes-1);  // creates parent node
+//             // parentId, key, offset, db, child1, child 2
+//         }else{
+//             checkNotFull(parentId,db);
+//             db.writeLong(-1);
+//             db.writeLong(midoff);
+//         }
         
         // steps
         // add key to parent
@@ -239,32 +238,39 @@ public class NodeManager {
         // gets location of parent
         long parentLocation = (112*(parentId)) + 16;
         db.seek(parentLocation);
-        if(nNodes==1){
+        if(nNodes==2){
             insert2Parent(db,parentId,key,offset,child1,child2); // makes a new node and insert child key and others
         }
+//        System
 
         
         //loops while a parent exists
-        while(db.readLong()!= -1){
+        //while(db.readLong()!= -1){
             //updates the current parent id per iteration
             //if its not full, insert the key and all of its information onto its parent node
+        else{
             if(checkNotFull(parentId, db)){
-                bt.insert(parentId ,db, key,numRecords);
+                System.out.println("TRUE");
+                db.writeLong(key);
+                db.writeLong(offset);
+                db.writeLong(child2);
+                sort(db,numRecords,parentId);
             }else{
                // this conditional says that the parent node is full, so it should make a new parent node.
                //this happens at the very first split and the succeeding split when the parent node is already full
                 insert2Parent(db,parentId,key,offset,child1,child2);
             }
+        }
             //moves on to the next parent id
             /*
                 i have to search the whole thing to find the recordId of a node which have parentId - 1
             */
-            db.seek(parentLocation);
-            parentId = db.readLong();
-            parentLocation = 112*parentId + 16;
-            
-            db.seek(parentLocation); 
-            System.out.println("current location of parent" + db.readLong());
+//            db.seek(parentLocation);
+//            parentId = db.readLong();
+//            parentLocation = 112*parentId + 16;
+//            
+//            db.seek(parentLocation); 
+//            System.out.println("current location of parent" + db.readLong());
         }
         
             
@@ -279,7 +285,7 @@ public class NodeManager {
 //        }
         
     
-    }
+//    }
     //id = id of parent
     /**
      * remember how the parent gets pushed up? this is the method that determines where the parent gets
@@ -304,10 +310,8 @@ public class NodeManager {
             //if it has a parent alr, and has space, write it there (shld prolly add a sort here)
             //prolly just call the sort function in btmanager after every split
             if(checkNotFull(id,db)){ //check the record based on id
-                db.writeLong(nNodes-2);
                 db.writeLong(key);
                 db.writeLong(offset);
-                db.writeLong(nNodes-1);
                 pid = id;
             }
             else{ //if the one to be pushed to it is the 5th num
@@ -330,7 +334,7 @@ public class NodeManager {
     }
     /**
      * find the new id of the "parent" (middle element before splitting)
-     * @param id
+     * @param parentid
      * @param db
      * @param key
      * @param offset
@@ -360,7 +364,7 @@ public class NodeManager {
                     arr[i] = db.readLong(); //place key
                     offsets[i] = db.readLong(); //place respective offset
                 }
-                //split(db,arr,par,offsets);
+                split(db,arr,par,offsets);
                 //^^^ WHAT IF IT SPLITS AND THE NUMBER RN IS THE NEW PARENT
             }
         }
@@ -380,7 +384,7 @@ public class NodeManager {
             db.seek(recid);
             long offset = db.readLong();
             if(offset==-1){
-                db.seek(recid-16); //go to the child node before the key thts empty
+                db.seek(recid-8); //go to the the key thts empty
                 return true;
             }
             recid+=24; //location of offset
@@ -437,5 +441,60 @@ public class NodeManager {
         long locationOfParent = 112*newNodeid+16;
         db.seek(locationOfParent);
         return(db.readLong()==-1);
+    }
+    /**
+     * sort an entire node
+     * @param db the RandomAccessFile of data.bt
+     * @param numRecords the current number of records
+     * @param node the record id of the node to be sorted
+     * @throws IOException 
+     */
+    public void sort(RandomAccessFile db, long numRecords,long node)throws IOException{
+    // lets sort! :(
+        long location = 112*node+8+24; 
+        long location2 = location;
+
+            for(int i =3; i>0; i--){// outer loop 1 2 3
+                for(int j = i; j>0; j-- ){ // 
+                    db.seek(location);
+                    long key1 = db.readLong();
+                    long off1 = db.readLong();
+                    long child1 = db.readLong();
+                    
+                    if(off1 ==-1 ){
+                        break;
+                    }
+                    long key2 = db.readLong();
+                    long off2 = db.readLong();
+                    long child2 = db.readLong();
+                    System.out.println(key1+" "+key2);
+                    if(key2<key1 && off2 != -1){
+                       db.seek(location);
+                       db.writeLong(key2);
+                       db.writeLong(off2);
+                       db.writeLong(child2);
+                    //go to location of keyVal key and write the first key and offset instead
+                       db.writeLong(key1);
+                       db.writeLong(off1);
+                       db.writeLong(child1);
+                    
+                    location+=24;
+                }
+                location=location2;
+            }
+            
+        }          
+    }
+    public long findKey(long key, long id, RandomAccessFile db)throws IOException{
+        long location = 0;
+        long current = 112*id+8+24;
+        for(long i=0;i<4;i++){
+            db.seek(current);
+            long keyhold = db.readLong();
+            if(keyhold==key && db.readLong()!=-1)
+                return i;
+            current+=24;
+        }
+        return location;
     }
 }
