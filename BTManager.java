@@ -154,17 +154,16 @@ public class BTManager {
             db.seek(locationOfKey); //read ith key of the node
             keyVal = db.readLong();
             System.out.println(" Key value " + keyVal);
+            System.out.println(" Key " + key);
             
             // records the offset value
             long locationOfOffset = locationOfParent +24*(i); 
             db.seek(locationOfOffset); 
             offsetVal = db.readLong();
-            System.out.print(" Offset value " + offsetVal);
             
             if(i != 4){
             db.seek(locationOfOffset+24);
             offsetVal2 =db.readLong();
-            System.out.print(" Offset2 value " + offsetVal2);
             }else{
                 offsetVal2 = -1;
             }
@@ -173,20 +172,17 @@ public class BTManager {
             long locationOfLeftChild = locationOfParent +8+24*(i-1);
             db.seek(locationOfLeftChild);
             leftChildVal = db.readLong();
-            System.out.print(" left value " + leftChildVal);
             
             // records the right child value
             long locationOfRightChild = locationOfLeftChild+24;
             db.seek(locationOfRightChild);
             rightChildVal = db.readLong();
-            System.out.print(" right value " + rightChildVal);
             
             // records last child 
             // used in the case that key is greater than last key
             long locationOfLastChild = locationOfParent +112-8;
             db.seek(locationOfLastChild);
             lastChildVal = db.readLong();
-            System.out.print(" last value " + lastChildVal);
             
             //key - to be inserted
             // keyVal - to be compared to
@@ -234,7 +230,7 @@ public class BTManager {
                         sort(db, numRecords, root);
                         break; 
                 }
-                break;// two breaks cause theres a iteration inside a recursion 
+                break;// two breaks cause theres a iteration inside a recursion
             }else{
                 // blank just to move on to the next iteration
             }
@@ -298,14 +294,14 @@ public class BTManager {
     }
     
     public long[] getAllChildren (long id, long child, RandomAccessFile db)throws IOException{
-        long[] arr = new long[6];
+        long[] arr = new long[5];
         long recid = 112*id + 16 + 8; //16=header, 8 = skip parent (reads the child)
-                for(int i = 0; i < 5; i++){
+                for(int i = 0; i < 4; i++){
                     db.seek(recid);
                     arr[i] = db.readLong();
                     recid += 24;
                 }
-                arr[5] = child;
+                arr[4] = child;
         return arr;
     }
     //return true if node not full
