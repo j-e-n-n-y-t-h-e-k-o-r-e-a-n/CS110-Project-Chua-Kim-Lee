@@ -318,7 +318,7 @@ public class NodeManager {
         db.seek(location);
         long right = db.readLong(); //id of right child
         long location2 = 112*right+16+8; //go to right child's first key
-        long newParent = nNodes-3;
+        long newParent = right;
         for(int i=0;i<4;i++){
             db.seek(location2);
             long child = db.readLong();
@@ -409,18 +409,6 @@ public class NodeManager {
             }
             
         }          
-    }
-    public long findKey(long key, long id, RandomAccessFile db)throws IOException{
-        long location = 0;
-        long current = 112*id+8+24;
-        for(long i=0;i<4;i++){
-            db.seek(current);
-            long keyhold = db.readLong();
-            if(keyhold==key && db.readLong()!=-1)
-                return i;
-            current+=24;
-        }
-        return location;
     }
         
     /**

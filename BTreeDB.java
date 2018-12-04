@@ -9,7 +9,6 @@ public class BTreeDB {
     //outside the try catch statement can reference to it.
     public static RandomAccessFile dVal,dBt;
     public static File dv,db;
-    public static BTManager btm;
     public static void main(String[] args) throws IOException{
         //instantiate ValueManager which has an empty constructor.
         ValueManager valueMan = new ValueManager();
@@ -30,7 +29,8 @@ public class BTreeDB {
         }
         catch(IOException e){ 
         }
-        btm = new BTManager(dBt,numNodes, numRecords);
+        BTManager btm = new BTManager(dBt,numNodes, numRecords);
+        
         /*
             This is the start of looking at the inputs
         */
@@ -79,10 +79,16 @@ public class BTreeDB {
                         select(Long.parseLong(input[1]),dBt,dVal,numRecords);
                     break;
                 case "update":
-                    if(Long.parseLong(input[1]) > numRecords)
-                        error("update",Long.parseLong(input[1]));
-                    else
-                    update(word,Long.parseLong(input[1]),dBt,dVal,numRecords);
+                    
+                    for(int i=1;i<=numRecords;i++){
+                        dBt.seek(8+24*i); //checks all keys in bt (CHANGE WHEN BT USES TREE STRUCTURE ALR)
+                        if(Long.parseLong(input[1])==dBt.readLong()){
+                            update(word,Long.parseLong(input[1]),dBt,dVal,numRecords);
+                            break;
+                        }
+                        else if(i==numRecords)
+                            error("update",Long.parseLong(input[1]));
+                    }
                     break;
                 case "exit":
                     break OUT;
@@ -96,69 +102,35 @@ public class BTreeDB {
     }
    //TEST SELECT (HYPOTHETICALLY shold work)
     public static void select(long key,RandomAccessFile dBt,RandomAccessFile dVal,long numRecords)throws IOException{
-        boolean ok = false;
-        //goes through each node in the btree
-        for(long j = 0; j<=btm.nm.returnNodes();j++){
-            //goes through each key in the node
-            for(long i=0;i<3;i++){
-                long keyLoc = (112*j)+16+16+(24*i); //112*j is the node. 16 is the header, 16 is the parent+1st child. 24*i is the ith key.
-                dBt.seek(keyLoc); 
-                long keyItself = dBt.readLong();
-                dBt.seek(keyLoc+8); //get offset
+        for(int i=1;i<=numRecords;i++){
+            dBt.seek(8+24*i); //checks all keys in bt (CHANGE WHEN BT USES TREE STRUCTURE ALR)
+            if(key==dBt.readLong()){
+                dBt.seek(16+24*i); //get offset
                 long offset = dBt.readLong(); //check the offset (written in bt)
-                if(key==keyItself && offset != -1){
-                    dVal.seek(256*offset+8); //8 = numrecord
-                    Byte b = dVal.readByte(); //reads the string length written in val
-                    int strlen = b.intValue(); //chhange it to int
-                    byte [] strb = new byte[strlen]; //string length*2 (2 bytes per letter?) PLS CONFIRM
-                    dVal.readFully(strb); //read strlen*2 bytes (puts it in array too?)
-                    String word = new String(strb,StandardCharsets.UTF_8); //changes it into a string
-                    System.out.println(key+" => "+word);
-                    ok = true;
-                    break;
-                }
+                System.out.println("offset is "+offset);
+                dVal.seek(256*offset+8); //8 = numrecord
+                Byte b = dVal.readByte(); //reads the string length written in val
+                int strlen = b.intValue(); //chhange it to int
+                byte [] strb = new byte[strlen]; //string length*2 (2 bytes per letter?) PLS CONFIRM
+                dVal.readFully(strb); //read strlen*2 bytes (puts it in array too?)
+                String word = new String(strb,StandardCharsets.UTF_8); //changes it into a string
+                System.out.println(key+" => "+word);
             }
-            if (ok)
-                break;
-
-            
         }
     }
     public static void update(String change,long key,RandomAccessFile dBt,RandomAccessFile dVal,long numRecords) throws IOException{
-          boolean ok = false;
-        //goes through each node in the btree
-        for(long j = 0; j<=btm.nm.returnNodes();j++){
-            //goes through each key in the node
-            for(long i=0;i<3;i++){
-                long keyLoc = (112*j)+16+16+(24*i); //112*j is the node. 16 is the header, 16 is the parent+1st child. 24*i is the ith key.
-                dBt.seek(keyLoc); 
-                long keyItself = dBt.readLong();
-                dBt.seek(keyLoc+8); //get offset
+        for(int i=1;i<=numRecords;i++){
+            dBt.seek(8+24*i); //checks all keys in bt (CHANGE WHEN BT USES TREE STRUCTURE ALR)
+            if(key==dBt.readLong()){
+                dBt.seek(16+24*i); //get offset
                 long offset = dBt.readLong(); //check the offset (written in bt)
-                if(key==keyItself && offset != -1){
-                    dVal.seek(256*offset+8); //8 = numrecord
-                    dVal.writeByte(change.length());
-                    dVal.writeBytes(change);
-                    System.out.println(key+" updated.");
-                    ok = true;
-                    break;
-                }
+                dVal.seek(256*offset+8); //8 = numrecord (seek the num
+                dVal.writeByte(change.length()); //writes length of the string
+                //this writes the word converted to bytes
+                dVal.writeBytes(change); //writes the string itself in byte conversion
+                System.out.println(key+" updated.");
             }
-            if (ok)
-                break;
         }
-//        for(int i=1;i<=numRecords;i++){
-//            dBt.seek(8+24*i); //checks all keys in bt (CHANGE WHEN BT USES TREE STRUCTURE ALR)
-//            if(key==dBt.readLong()){
-//                dBt.seek(16+24*i); //get offset
-//                long offset = dBt.readLong(); //check the offset (written in bt)
-//                dVal.seek(256*offset+8); //8 = numrecord (seek the num
-//                dVal.writeByte(change.length()); //writes length of the string
-//                //this writes the word converted to bytes
-//                dVal.writeBytes(change); //writes the string itself in byte conversion
-//                System.out.println(key+" updated.");
-//            }
-//        }
     }
     public static void error(String word, long key){
         System.out.print("ERROR: ");
