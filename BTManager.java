@@ -57,7 +57,7 @@ public class BTManager {
             
         }else{
             db.seek(8);
-            insert2childOrnot(db.readLong(),db,key,numRecords);
+            insert2childOrnot(db.readLong()-1,db,key,numRecords);
         }
     }
     
@@ -115,8 +115,7 @@ public class BTManager {
      */
     public void insert2childOrnot(long root,RandomAccessFile db,long key,long numRecords) throws IOException{
         long keyVal;  long offsetVal; long offsetVal2; long leftChildVal; long rightChildVal; long lastChildVal; long offset = numRecords; 
-        
-        long locationOfParent = 112*root+16; //location of parent
+        long locationOfParent = 112*(root)+16; //location of parent
         db.seek(locationOfParent);
         //records parentId
         long parentVal = db.readLong(); //parent of current node

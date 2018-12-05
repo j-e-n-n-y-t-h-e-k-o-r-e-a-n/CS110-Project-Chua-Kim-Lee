@@ -44,6 +44,7 @@ public class BTreeDB {
             String s = in.nextLine();
             String[] input = s.split(" ");
             String word = "";
+            String wholeWord = "";
             // in the case that the value has more than 1 words, this for loop adds all of it
             if(input.length>=3){
                 for(int i =2; i<=input.length-1; i++){
@@ -59,18 +60,18 @@ public class BTreeDB {
             switch(input[0]){
                 case "insert":
                     // if input length is correct
-                    if(input.length == 1){
-                        error("no", 0);
+                    if(input.length == 1 ){
+                        error("no", "0");
                         break;
-                    }
-                    else if(input.length>=2){
+                    }else if(isNum(input[1]) != true){
+                        error("nope", input[1]);
+                     }else if(input.length>=2){
                         long key = Long.parseLong(input[1]);
                         //search for key if exists
                         if(doesKeyExist(Long.parseLong(input[1]),dBt, dVal, numRecords )){
-                            error("insert", Integer.parseInt(input[1]));
+                            error("insert", input[1]);
                            
-                        }
-                        else{
+                        }else{
                             dBt.seek(8);
                             btm.insert(dBt.readLong(),dBt,key,numRecords);
                             valueMan.insert(dVal,word,numRecords);
@@ -82,28 +83,32 @@ public class BTreeDB {
                     
                 case "select":
                     if(input.length == 1){
-                        error("no", 0);
+                        error("no", "0");
                         break;
                     }
                     else if(input.length>2)
-                        error("select", Integer.parseInt(input[1]));
+                        error("no", input[1]);
+                    else if(isNum(input[1]) != true)
+                        error("nope", input[1]);
                     else
                         select(Long.parseLong(input[1]),dBt,dVal,numRecords);
                     break;
                 case "update":
                     if(input.length == 1){
-                        error("no", 0);
+                        error("no", "key");
                         break;
-                    }
-                    else if(input.length >3)
-                        error("update",Long.parseLong(input[1]));
-                    else
+                    }else if(isNum(input[1]) != true)
+                        error("nope", input[1]);
+                    else if(input.length == 2)
+                         error("no", "word");
+                    else if (input.length >=3)
                     update(word,Long.parseLong(input[1]),dBt,dVal,numRecords);
                     break;
+                       
                 case "exit":
                     break OUT;
                 default:
-                    error("wrong",0);
+                    error("wrong","0");
             }
         }
         dVal.close();
@@ -119,6 +124,16 @@ public class BTreeDB {
      * @param numRecords
      * @throws IOException 
      */
+    public static boolean isNum(String num){
+        try{
+            Long num2 = Long.parseLong(num);
+        }catch(NumberFormatException| NullPointerException nfe){
+            return false;
+        }
+        return true;
+    }
+    
+    
     public static boolean doesKeyExist(long key, RandomAccessFile dBt, RandomAccessFile dVal, long numRecords) throws IOException{
          boolean ok = false;
         //goes through each node in the btree
@@ -138,14 +153,15 @@ public class BTreeDB {
         return false;
     }
     public static void select(long key,RandomAccessFile dBt,RandomAccessFile dVal,long numRecords)throws IOException{
-         boolean ok = false;
+      
+        boolean ok = false;
         //goes through each node in the btree
         for(long j = 0; j<=btm.nm.returnNodes()-1;j++){
             //goes through each key in the node
             for(long i=0;i<4;i++){
                 long keyLoc = (112*j)+16+16+(24*i); //112*j is the node. 16 is the header, 16 is the parent+1st child. 24*i is the ith key.
                 if(keyLoc > ((112*(btm.nm.returnNodes()))+16)){
-                    error("select", key);
+                    error("select",  Long.toString(key));
                     ok = true;
                     break;
                 }
@@ -170,8 +186,8 @@ public class BTreeDB {
                 break;
             }
             if(!ok)
-            error("select", key);
-        }
+            error("select",  Long.toString(key));
+    }
     
     public static void update(String change,long key,RandomAccessFile dBt,RandomAccessFile dVal,long numRecords) throws IOException{
           boolean ok = false;
@@ -181,7 +197,7 @@ public class BTreeDB {
             for(long i=0;i<4;i++){
                 long keyLoc = (112*j)+16+16+(24*i); //112*j is the node. 16 is the header, 16 is the parent+1st child. 24*i is the ith key.
                 if(keyLoc > ((112*(btm.nm.returnNodes()))+16)){
-                    error("select", key);
+                    error("select", Long.toString(key));
                     ok = true;
                     break;
                 }
@@ -203,13 +219,12 @@ public class BTreeDB {
             
         }
         if(!ok)
-            error("update", key);
+            error("update", Long.toString(key));
     }
-    public static void error(String word, long key){
+    public static void error(String word, String key){
         System.out.print("ERROR: ");
         switch (word) {
             case "select":
-                // error for select is not specified
                  System.out.println(key+" does not exist.");
                 break;
             case "insert":
