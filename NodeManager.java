@@ -62,7 +62,6 @@ public class NodeManager {
     public void addNode(RandomAccessFile db,long parent,long num1,long num2,long off1,long off2, long child1, long child2, long child3)throws IOException{
             // gets the location at end of file
             long lastRecord = (nNodes*112)+ 16;
-            System.out.println("LAST RECORD IS AT" +lastRecord);
             db.seek(lastRecord);
             
         //go to the end of the latest record (EOF)
@@ -123,7 +122,6 @@ public class NodeManager {
         nNodes++;
         db.seek(0);
         db.writeLong(nNodes); //update the numnodes at heade
-        System.out.println(nNodes);
         db.writeLong(nNodes-1);
         
     }
@@ -153,12 +151,9 @@ public class NodeManager {
         /*
             before we do something, we should check first if the node to be split is the root node
         */
-        System.out.println("TOP: "+topid);
         long locationOfParent = 112*topid+16; //check parent of current node being checked
-        System.out.println(" current if (split)  "+ topid);
         db.seek(locationOfParent);
         long parent = db.readLong(); //Record number of the node of the parent
-        System.out.println("parent of current: "+parent);
         
         //sorting part
         for(int i=4;i>0;i--){ //read til 4th lang
@@ -172,14 +167,9 @@ public class NodeManager {
             }
         }
         //isolates the middle 
-        System.out.println("CHILDREN");
-        for(long i:children){
-            System.out.println(i);
-        }
         long mid = arr[2];
         long midoff = offsets[2];
         long parentId = findParentId(parent,db,mid,midoff,nNodes-1); // returns parent id
-        System.out.println("PARENT ID: "+parentId);
         changeNode(locationOfParent,db,parentId,arr[0],arr[1],offsets[0],offsets[1], children[0], children[1],children[2]);
         if(s.equals("true")){
             addNode(db,parentId,arr[3],arr[4],offsets[3],offsets[4], children[3], children[4],children[5]);

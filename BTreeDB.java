@@ -54,14 +54,16 @@ public class BTreeDB {
                     }
                 }
             }
-            
             // checks the first word
             // if properly inputted
             switch(input[0]){
                 case "insert":
                     // if input length is correct
-                    
-                    if(input.length>=2){
+                    if(input.length == 1){
+                        error("no", 0);
+                        break;
+                    }
+                    else if(input.length>=2){
                         long key = Long.parseLong(input[1]);
                         //search for key if exists
                         if(doesKeyExist(Long.parseLong(input[1]),dBt, dVal, numRecords )){
@@ -79,13 +81,21 @@ public class BTreeDB {
                     break;
                     
                 case "select":
-                    if(input.length>2)
+                    if(input.length == 1){
+                        error("no", 0);
+                        break;
+                    }
+                    else if(input.length>2)
                         error("select", Integer.parseInt(input[1]));
                     else
                         select(Long.parseLong(input[1]),dBt,dVal,numRecords);
                     break;
                 case "update":
-                    if(input.length >3)
+                    if(input.length == 1){
+                        error("no", 0);
+                        break;
+                    }
+                    else if(input.length >3)
                         error("update",Long.parseLong(input[1]));
                     else
                     update(word,Long.parseLong(input[1]),dBt,dVal,numRecords);
