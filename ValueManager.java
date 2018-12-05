@@ -2,7 +2,15 @@
 import java.io.*;
 
 public class ValueManager {
-
+/**
+ * This method writes the values to be inserted as bytes
+ * First, it writes spaces for the length of the string
+ * Next, it writes the string itself converted to bytes.
+ * @param dv
+ * @param word the word to be inserted
+ * @param numRecords
+ * @throws IOException 
+ */
     public void insert(RandomAccessFile dv,String word, long numRecords) throws IOException{
         dv.seek(fNumRecords(numRecords));
         
@@ -16,6 +24,11 @@ public class ValueManager {
        // close
        
     }
+    /**
+     * Returns how many bytes at the nth numRecord
+     * @param numRecords
+     * @return 
+     */
     public long fNumRecords(long numRecords){
         // every record is 256 bytes
         long bytes = 8+(256*numRecords);

@@ -12,14 +12,11 @@ public class NodeManager {
         nNodes = numNodes;
         numRecords = nRecords;
     }
-    //only works for beginning(when new nodes r made down
-    //all new nodes have at least 2 keys
-    //num 1 = less
-    //num2 = greater
+    
     
     /**
-     * change the current node into the 1st child
-     * @param location the location of the node to be changed (formula alr done at this point)(formula: 8+recNum of node * 112)?
+     * change the current node into the 1st child whenever a split happens.
+     * @param location the location of the node to be changed
      * @param db the RandomAccessFile of data.bt
      * @param parent the record number of its new "parent"
      * @param num1 its first key
@@ -95,7 +92,16 @@ public class NodeManager {
         }
     }
     
-    //make a new parent id
+    /**
+     * Creates a new node that contains the parent. This happens when a node is split. 
+     * @param db
+     * @param parent the record number of the parent
+     * @param num1 key to be inserted to the parent
+     * @param off1 record number of the key
+     * @param child1 left child of the key
+     * @param child2 right child of the key
+     * @throws IOException 
+     */
     public void insert2Parent(RandomAccessFile db,long parent,long num1,long off1,long child1,long child2)throws IOException{
         long lastRecord = 112*nNodes+16;
         db.seek(lastRecord); //go to the end of the latest record (EOF)
@@ -121,10 +127,6 @@ public class NodeManager {
         db.writeLong(nNodes-1);
         
     }
-    //turn the split shit into -1
-    //offset = offset of currently inserted value (in case it is the mid)
-    //NOTE CHECK IF A PARENT ALR EXISTS
-    
     /**
      * swap 2 elements in an array
      * @param arr the array containing the elements
@@ -139,6 +141,7 @@ public class NodeManager {
     
     /**
      * split the current node into 2 more nodes + the parent
+     * this method also checks if the node that the key will be inserted to will split or not.
      * @param db the RandomAccessFile of data b t
      * @param arr an array of keys
      * @param topid the id of the current node that is to be split
@@ -189,25 +192,25 @@ public class NodeManager {
         adjustRightSide(db);
         
     }
-    // key - middlemost value
+    /**
+     * This method is called in the split and determines if the key will be put to the parent or if it will make a new node for the parent.
+     * @param parentId record number of parent
+     * @param key key to be inserted
+     * @param offset offset of key
+     * @param db
+     * @param child1 left child of key
+     * @param child2 right child of key
+     * @throws IOException 
+     */
     public void placeParent(long parentId, long key,long offset,RandomAccessFile db,long child1,long child2)throws IOException{
     // happens after split we place the middlemost value to parent id
-        System.out.println("where to place " + parentId);
-        // gets location of parent
-//            long parentLocation = (112*parentId) + 16;
-//            db.seek(parentLocation+=8); //to go to the child
-//            db.writeLong(child1); //it doesnt write the value correctly
         db.seek(8);
         long root = db.readLong();
         if(nNodes ==2 || parentId == -1 || parentId >=nNodes){
             insert2Parent(db,parentId,key,offset,child1,child2); 
         }
-//            else if(parentId>=nNodes){
-////                getAllChildrenOfParent(child2,parentId-2,db);
-//                split(db,getAllKeysOfParent(key,parentId-2,db),parentId-2,getAllOffsetsOfParent(offset,parentId-2,db),getAllChildrenOfParent(child2,parentId-2,db));
-//            }
+
         else{ //if not full, write to parent
-             System.out.println("WROTE TO PARENT: "+ key);
              if(parentId<nNodes && num==0){
                 if(checkNotFull(parentId,db)){
                     db.writeLong(key);
@@ -222,7 +225,6 @@ public class NodeManager {
         num=0;
     }
         
-    //id = id of parent
     /**
      * find the new id of the "parent" (middle element before splitting)
      * @param parentid
@@ -234,7 +236,6 @@ public class NodeManager {
      */
     public long findParentId(long parentid,RandomAccessFile db,long key,long offset,long child2)throws IOException{
         long pid=0; //id of where itll be placed
-        System.out.println("PAR "+parentid);
         if(parentid==-1){
             pid = nNodes+1;
         }
@@ -277,14 +278,13 @@ public class NodeManager {
     }
     
     /**
-     * check if a node is full or not (if it has 4 keys alr
+     * check if a node is full or not. It is full if it has 4 keys
      * @param nodeId the record id of the node to be checked
      * @param db the RandomAccessFile of data.bt
-     * @return whether it's full or not
+     * @return true if it still has space and returns false if the node has no space.
      * @throws IOException 
      */
     public boolean checkNotFull(long nodeId,RandomAccessFile db) throws IOException{
-        System.out.println(" FULL "+nodeId);
         long recid = 112*nodeId+16+24; //finding the record first(skip the parent also)
         for(int i=0;i<4;i++){
             db.seek(recid);
@@ -302,7 +302,7 @@ public class NodeManager {
      * check the parent of a node
      * @param db the RandomAccessFile of data.bt
      * @param id the record id of the node to be checked
-     * @return the parent id of the node
+     * @return the record number of the parent of the node
      * @throws IOException 
      */
     public long checkParentId(RandomAccessFile db,long id)throws IOException{
@@ -318,7 +318,7 @@ public class NodeManager {
         db.seek(location);
         long right = db.readLong(); //id of right child
         long location2 = 112*right+16+8; //go to right child's first key
-        long newParent = nNodes-3;
+        long newParent = right;
         for(int i=0;i<4;i++){
             db.seek(location2);
             long child = db.readLong();
@@ -328,7 +328,6 @@ public class NodeManager {
             }
             location2+=24;
         }
-        // p c k o c k o c k o c k o c
     }
     
     /**
@@ -410,18 +409,6 @@ public class NodeManager {
             
         }          
     }
-    public long findKey(long key, long id, RandomAccessFile db)throws IOException{
-        long location = 0;
-        long current = 112*id+8+24;
-        for(long i=0;i<4;i++){
-            db.seek(current);
-            long keyhold = db.readLong();
-            if(keyhold==key && db.readLong()!=-1)
-                return i;
-            current+=24;
-        }
-        return location;
-    }
         
     /**
      * get all keys of the current node (including the fifth one that doesn't get inserted)
@@ -433,7 +420,6 @@ public class NodeManager {
      */
     public long[] getAllKeysOfParent(long key,long id,RandomAccessFile db)throws IOException{
         long[] arr = new long[5];
-        System.out.println("ID "+id);
         long recid = 112*id+16+16; //16 = header, 16 =  skips parent and child 
         for(int i=0;i<4;i++){
             db.seek(recid);
@@ -443,11 +429,18 @@ public class NodeManager {
         
         arr[4] = key;
         for(int n = 0; n<4; n++){
-            System.out.println("PARENT KEYS ARE: " +  arr[n]);
                 }
         return arr;
     }
     
+    /**
+     * puts all of the children of the node into the array (5 children in total)
+     * @param child the 6th child to be inserted
+     * @param id the node we are currently looking at
+     * @param db
+     * @return array of children
+     * @throws IOException 
+     */
     public long[] getAllChildrenOfParent (long child, long id, RandomAccessFile db)throws IOException{
         long[] arr = new long[6];
         long recid = 112*id + 16 + 8; //16=header, 8 = skip parent (reads the child)
@@ -459,19 +452,25 @@ public class NodeManager {
                 arr[4]=child;
         return arr;
     }
+    /**
+     * puts all of the offsets of a node inside an array (5 offsets in total)
+     * @param offset the 5th offset to be inserted
+     * @param id the node we are currently looking at
+     * @param db
+     * @return an array of offsets
+     * @throws IOException 
+     */
         public long[] getAllOffsetsOfParent(long offset, long id, RandomAccessFile db) throws IOException{
         long[] offsets = new long[5];
         long recid = 112*id+16+24; //16 = header, 16 = skip parent and child and key (read offsets)
         for(int i=0;i<4;i++){
             db.seek(recid);
             long off = db.readLong();
-//            System.out.println(off);
             offsets[i] = off;
             recid+=24;
         }
         offsets[4] = offset;
         for(int n = 0; n<4; n++){
-            System.out.println("OFFSET KEYS ARE: " +  offsets[n]);
                 }
         return offsets;
     }

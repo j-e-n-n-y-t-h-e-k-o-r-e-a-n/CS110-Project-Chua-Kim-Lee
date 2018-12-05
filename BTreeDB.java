@@ -31,6 +31,7 @@ public class BTreeDB {
         catch(IOException e){ 
         }
         btm = new BTManager(dBt,numNodes, numRecords);
+        
         /*
             This is the start of looking at the inputs
         */
@@ -59,19 +60,24 @@ public class BTreeDB {
             switch(input[0]){
                 case "insert":
                     // if input length is correct
+                    
                     if(input.length>=2){
                         long key = Long.parseLong(input[1]);
-                        dBt.seek(8);
-                        btm.insert(dBt.readLong(),dBt,key,numRecords);
-                    // adds also the key?
-                    valueMan.insert(dVal,word,numRecords);
-                    System.out.println(key + " inserted.");
-                    numRecords++;
-                    }else{ // if input is worng or added too much stuff
-                        error("insert", Integer.parseInt(input[1]));
+                        //search for key if exists
+                        if(doesKeyExist(Long.parseLong(input[1]),dBt, dVal, numRecords )){
+                            error("insert", Integer.parseInt(input[1]));
+                           
+                        }
+                        else{
+                            dBt.seek(8);
+                            btm.insert(dBt.readLong(),dBt,key,numRecords);
+                            valueMan.insert(dVal,word,numRecords);
+                            System.out.println(key + " inserted.");
+                            numRecords++;
+                        }
                     }
-                   
                     break;
+                    
                 case "select":
                     if(input.length>2)
                         error("select", Integer.parseInt(input[1]));
@@ -79,7 +85,7 @@ public class BTreeDB {
                         select(Long.parseLong(input[1]),dBt,dVal,numRecords);
                     break;
                 case "update":
-                    if(Long.parseLong(input[1]) > numRecords)
+                    if(input.length >3)
                         error("update",Long.parseLong(input[1]));
                     else
                     update(word,Long.parseLong(input[1]),dBt,dVal,numRecords);
@@ -94,14 +100,46 @@ public class BTreeDB {
         dBt.close();
         
     }
-   //TEST SELECT (HYPOTHETICALLY shold work)
-    public static void select(long key,RandomAccessFile dBt,RandomAccessFile dVal,long numRecords)throws IOException{
-        boolean ok = false;
+    /**
+     * This method checks if the key to be inserted already exists or not.
+     * returns true if key already exists
+     * @param key the key to be inserted
+     * @param dBt
+     * @param dVal
+     * @param numRecords
+     * @throws IOException 
+     */
+    public static boolean doesKeyExist(long key, RandomAccessFile dBt, RandomAccessFile dVal, long numRecords) throws IOException{
+         boolean ok = false;
         //goes through each node in the btree
-        for(long j = 0; j<=btm.nm.returnNodes();j++){
+        for(long j = 0; j<=btm.nm.returnNodes()-1;j++){
             //goes through each key in the node
-            for(long i=0;i<3;i++){
+            for(long i=0;i<4;i++){
                 long keyLoc = (112*j)+16+16+(24*i); //112*j is the node. 16 is the header, 16 is the parent+1st child. 24*i is the ith key.
+                dBt.seek(keyLoc); 
+                long keyItself = dBt.readLong();
+                dBt.seek(keyLoc+8); //get offset
+                long offset = dBt.readLong(); //check the offset (written in bt)
+                if(key==keyItself && offset != -1){
+                    return true;
+                }
+            }
+            }
+        return false;
+    }
+    public static void select(long key,RandomAccessFile dBt,RandomAccessFile dVal,long numRecords)throws IOException{
+         boolean ok = false;
+        //goes through each node in the btree
+        for(long j = 0; j<=btm.nm.returnNodes()-1;j++){
+            //goes through each key in the node
+            for(long i=0;i<4;i++){
+                long keyLoc = (112*j)+16+16+(24*i); //112*j is the node. 16 is the header, 16 is the parent+1st child. 24*i is the ith key.
+                if(keyLoc > ((112*(btm.nm.returnNodes()))+16)){
+                    error("select", key);
+                    ok = true;
+                    break;
+                }
+                
                 dBt.seek(keyLoc); 
                 long keyItself = dBt.readLong();
                 dBt.seek(keyLoc+8); //get offset
@@ -120,17 +158,23 @@ public class BTreeDB {
             }
             if (ok)
                 break;
-
-            
+            }
+            if(!ok)
+            error("select", key);
         }
-    }
+    
     public static void update(String change,long key,RandomAccessFile dBt,RandomAccessFile dVal,long numRecords) throws IOException{
           boolean ok = false;
         //goes through each node in the btree
         for(long j = 0; j<=btm.nm.returnNodes();j++){
             //goes through each key in the node
-            for(long i=0;i<3;i++){
+            for(long i=0;i<4;i++){
                 long keyLoc = (112*j)+16+16+(24*i); //112*j is the node. 16 is the header, 16 is the parent+1st child. 24*i is the ith key.
+                if(keyLoc > ((112*(btm.nm.returnNodes()))+16)){
+                    error("select", key);
+                    ok = true;
+                    break;
+                }
                 dBt.seek(keyLoc); 
                 long keyItself = dBt.readLong();
                 dBt.seek(keyLoc+8); //get offset
@@ -146,19 +190,10 @@ public class BTreeDB {
             }
             if (ok)
                 break;
+            
         }
-//        for(int i=1;i<=numRecords;i++){
-//            dBt.seek(8+24*i); //checks all keys in bt (CHANGE WHEN BT USES TREE STRUCTURE ALR)
-//            if(key==dBt.readLong()){
-//                dBt.seek(16+24*i); //get offset
-//                long offset = dBt.readLong(); //check the offset (written in bt)
-//                dVal.seek(256*offset+8); //8 = numrecord (seek the num
-//                dVal.writeByte(change.length()); //writes length of the string
-//                //this writes the word converted to bytes
-//                dVal.writeBytes(change); //writes the string itself in byte conversion
-//                System.out.println(key+" updated.");
-//            }
-//        }
+        if(!ok)
+            error("update", key);
     }
     public static void error(String word, long key){
         System.out.print("ERROR: ");

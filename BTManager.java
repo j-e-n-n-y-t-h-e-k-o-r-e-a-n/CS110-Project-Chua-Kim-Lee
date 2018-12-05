@@ -16,7 +16,6 @@ public class BTManager {
         //when a node does not exist
         //when the data.bt is just being created for the first time
         if(numNodes==0){
-            System.out.println(numNodes);
             nm.addNode(db, -1, -1,-1,-1,-1,-1,-1,-1);
            // nNodes = nm.returnNodes();
         }
@@ -25,28 +24,6 @@ public class BTManager {
             nm.updateNodes(numNodes);
             //nNodes=numNodes;
     }
-    
-    //NOTE: OFFSET IS JUST NUMRECORDS, NODE ID IS JUST NUMNODES-1
-    /*
-    header 1 8
-    header 2 16
-    1.	ID of Parent Node 8 location 24
-    2.	ID of 1st Child Node 16 32
-    3.	1st Key 24 40
-    4.	Offset of 1st Value 32 48
-    5.	ID of 2nd Child Node 40 56
-    6.	2nd Key 48 64
-    7.	Offset of 2nd Value 56 72
-    8.	ID of 3rd Child Node 64 80
-    9.	3rd Key 72 88
-    10.	Offset of 3rd Value 80 96
-    11.	ID of 4th Child Node 88 104
-    12.	4th Key 96 112
-    13.	Offset of 4th Value 104 120
-    14.	ID of 5th Child Node 112 128
-    */
-//    //check from top which way to go(left right) then check child.....
-    
     /**
      * inserts the key wherever it should be inserted
      * @param parent the parent id of the node where it is to be inserted (starts from root id going down)
@@ -61,7 +38,6 @@ public class BTManager {
             if(checkNotFull(nm.returnNodes()-1,db)){ //checks if true then root is not full
                 // if not full 
                 // we insert key and offset to current node
-                System.out.println("numRecords" +numRecords);
                 long keyLocation = 8+24*(numRecords+1); 
                 db.seek(keyLocation); 
                 db.writeLong(key);
@@ -81,7 +57,7 @@ public class BTManager {
             
         }else{
             db.seek(8);
-            System.out.println(insert2childOrnot(db.readLong(),db,key,numRecords));
+            insert2childOrnot(db.readLong(),db,key,numRecords);
         }
     }
     
@@ -137,9 +113,8 @@ public class BTManager {
      * @param numRecords the current number of records (used as offset)
      * @throws IOException 
      */
-    public String insert2childOrnot(long root,RandomAccessFile db,long key,long numRecords) throws IOException{
+    public void insert2childOrnot(long root,RandomAccessFile db,long key,long numRecords) throws IOException{
         long keyVal;  long offsetVal; long offsetVal2; long leftChildVal; long rightChildVal; long lastChildVal; long offset = numRecords; 
-        System.out.println("currently looking at node# " + root);
         
         long locationOfParent = 112*root+16; //location of parent
         db.seek(locationOfParent);
@@ -153,9 +128,6 @@ public class BTManager {
             long locationOfKey = locationOfParent -8+24*(i); // (i) because we need to increase the value for every iteration and i starts with 1;
             db.seek(locationOfKey); //read ith key of the node
             keyVal = db.readLong();
-            System.out.println(" Key value " + keyVal);
-            System.out.println(" Key " + key);
-            
             // records the offset value
             long locationOfOffset = locationOfParent +24*(i); 
             db.seek(locationOfOffset); 
@@ -188,7 +160,6 @@ public class BTManager {
             // keyVal - to be compared to
             // offset - check if not -1
             // when it reaches 4th iteration we can assume theres no space
-            System.out.println(checkNotFull(root, db));
             if(key<keyVal && offset != -1){ // if key is smaller than key val check leftchild
                 if(leftChildVal == -1){ // checks if at bottomost
                     // check if full
@@ -235,7 +206,7 @@ public class BTManager {
                 // blank just to move on to the next iteration
             }
         }
-        return "yeah";
+        ;
     }
     
     /**
@@ -252,7 +223,6 @@ public class BTManager {
         for(int i=0;i<4;i++){
             db.seek(recid);
             long off = db.readLong();
-//            System.out.println(off);
             offsets[i] = off;
             recid+=24;
         }
